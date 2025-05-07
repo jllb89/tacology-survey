@@ -1,11 +1,9 @@
-// next.config.js
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   eslint: {
-    // Skip ESLint during production builds (avoids the unused-vars error blocking your deploy)
+    // ignore all ESLint errors (including unused-vars) during builds
     ignoreDuringBuilds: true,
   },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
