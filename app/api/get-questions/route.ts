@@ -3,7 +3,8 @@ import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
-export async function GET(_request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function GET(request: NextRequest) {
   try {
     const [locSnap, servSnap, foodSnap] = await Promise.all([
       getDocs(collection(db, 'locationQuestions')),
