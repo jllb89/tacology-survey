@@ -1,9 +1,9 @@
 // app/api/get-questions/route.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   try {
     const [locSnap, servSnap, foodSnap] = await Promise.all([
       getDocs(collection(db, 'locationQuestions')),
@@ -17,7 +17,7 @@ export async function GET() {
 
     const serviceQuestion =
       serviceList[Math.floor(Math.random() * serviceList.length)];
-    const foodQuestion =
+    const foodQuestion   =
       foodList[Math.floor(Math.random() * foodList.length)];
 
     return NextResponse.json({
