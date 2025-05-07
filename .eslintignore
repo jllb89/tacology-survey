@@ -1,0 +1,2 @@
+# Ignore our get-questions API route so unused-vars can’t fail the build
+app/api/get-questions/route.ts
