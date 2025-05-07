@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
+// app/api/get-questions/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
@@ -13,8 +12,8 @@ export async function GET() {
     ]);
 
     const locationQuestion = locSnap.docs.find(d => d.id === 'loc-1')?.data();
-    const serviceList = servSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const foodList    = foodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const serviceList     = servSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const foodList        = foodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     const serviceQuestion =
       serviceList[Math.floor(Math.random() * serviceList.length)];
@@ -28,10 +27,10 @@ export async function GET() {
       openQuestion: { id: 'open', text: 'Any additional comments or suggestions?' },
     });
   } catch (err) {
-    console.error(err);
+    console.error('GET /api/get-questions failed:', err);
     return NextResponse.json(
       { error: 'Failed to load questions' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
