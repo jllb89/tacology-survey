@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+      // only override module system for the seed script
+      "module": "commonjs",
+      "moduleResolution": "node"
+    },
+    "include": ["scripts/**/*"]
+  }
+  
