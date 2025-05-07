@@ -1,4 +1,3 @@
-// app/api/get-questions/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
@@ -15,10 +14,8 @@ export async function GET() {
     const serviceList = servSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const foodList = foodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-    const serviceQuestion =
-      serviceList[Math.floor(Math.random() * serviceList.length)];
-    const foodQuestion =
-      foodList[Math.floor(Math.random() * foodList.length)];
+    const serviceQuestion = serviceList[Math.floor(Math.random() * serviceList.length)];
+    const foodQuestion   = foodList[Math.floor(Math.random() * foodList.length)];
 
     return NextResponse.json({
       locationQuestion: { id: 'loc-1', ...locationQuestion },
@@ -28,9 +25,6 @@ export async function GET() {
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { error: 'Failed to load questions' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to load questions' }, { status: 500 });
   }
 }
