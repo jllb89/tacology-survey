@@ -1,68 +1,56 @@
 // scripts/seedQuestions.ts
+// Run with: npx ts-node --project tsconfig.scripts.json scripts/seedQuestions.ts
 
-/**
- * Seed script to import survey questions into Firestore.
- * Run with:
- *   npx ts-node --project tsconfig.scripts.json scripts/seedQuestions.ts
- */
-
-// Firebase Admin SDK (CommonJS require)
+// Use CommonJS requires so ts-node will load this without fuss
 const admin = require("firebase-admin");
-const path = require("path");
+const serviceAccount = require("../serviceAccountKey.json");
 
-// Load service account key JSON (downloaded from Firebase Console)
-const serviceAccount = require(path.join(__dirname, "../serviceAccountKey.json"));
-
-// Question arrays imported from your data file
+// Import your new question exports
 const {
-  locationQuestions,
+  initialLocationQuestion,
+  locationFollowUpQuestions,
   serviceQuestions,
   foodQuestions,
 } = require("../data/questions");
 
-// Initialize Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// Firestore database reference
 const db = admin.firestore();
 
-/**
- * Seed a Firestore collection with question documents.
- * @param {string} collectionName - The name of the Firestore collection.
- * @param {{ id: string; text: string; options?: string[] }[]} questions - Array of question objects.
- * @returns {Promise<void>}
- */
-async function seedCategory(
-  collectionName: string,
-  questions: { id: string; text: string; options?: string[] }[]
-): Promise<void> {
-  const colRef = db.collection(collectionName);
+async function seedCategory(collectionName: string, questions: any[]) {
+  const col = db.collection(collectionName);
   for (const q of questions) {
-    await colRef.doc(q.id).set({
+    await col.doc(q.id).set({
       text: q.text,
-      options: q.options || [],
-      responseTimestamps: [],
+      options: q.options ?? [],
+      responseTimestamps: [],       // preserves your per-question metrics
     });
     console.log(`Seeded ${collectionName}/${q.id}`);
   }
 }
 
-/**
- * Main entrypoint: seeds all question collections.
- */
-async function main(): Promise<void> {
+async function main() {
   console.log("Starting Firestore seeding...");
-  await seedCategory("locationQuestions", locationQuestions);
+
+  // 1️⃣ Venue questions: loc-1 plus the follow-ups
+  await seedCategory("locationQuestions", [
+    initialLocationQuestion,
+    ...locationFollowUpQuestions,
+  ]);
+
+  // 2️⃣ Service questions
   await seedCategory("serviceQuestions", serviceQuestions);
+
+  // 3️⃣ Food questions
   await seedCategory("foodQuestions", foodQuestions);
+
   console.log("Seeding complete. Goodbye!");
   process.exit(0);
 }
 
-// Execute and handle errors
-main().catch((err: unknown) => {
+main().catch((err) => {
   console.error("Error during seeding:", err);
   process.exit(1);
 });

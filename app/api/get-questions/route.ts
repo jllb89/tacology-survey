@@ -1,37 +1,35 @@
 // app/api/get-questions/route.ts
-import { NextResponse, NextRequest } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { NextResponse } from "next/server";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const [locSnap, servSnap, foodSnap] = await Promise.all([
-      getDocs(collection(db, 'locationQuestions')),
-      getDocs(collection(db, 'serviceQuestions')),
-      getDocs(collection(db, 'foodQuestions')),
-    ]);
+    const locSnap  = await getDocs(collection(db, "locationQuestions"));
+    const servSnap = await getDocs(collection(db, "serviceQuestions"));
+    const foodSnap = await getDocs(collection(db, "foodQuestions"));
 
-    const locationQuestion = locSnap.docs.find(d => d.id === 'loc-1')?.data();
-    const serviceList     = servSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const foodList        = foodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // 🍴 Locate loc-1 and the rest
+    const allLoc = locSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const initial = allLoc.find(q => q.id === "loc-1")!;
+    const followUps = allLoc.filter(q => q.id !== "loc-1");
 
-    const serviceQuestion =
-      serviceList[Math.floor(Math.random() * serviceList.length)];
-    const foodQuestion   =
-      foodList[Math.floor(Math.random() * foodList.length)];
+    // 🔀 Pick one random from each pool
+    const random = <T>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+
+    const locationFollowUpQuestion = random(followUps);
+    const serviceQuestion         = random(servSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const foodQuestion            = random(foodSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
     return NextResponse.json({
-      locationQuestion: { id: 'loc-1', ...locationQuestion },
+      initialLocationQuestion: initial,
+      locationFollowUpQuestion,
       serviceQuestion,
       foodQuestion,
-      openQuestion: { id: 'open', text: 'Any additional comments or suggestions?' },
+      openQuestion: { id: "open", text: "Any additional comments or suggestions?" },
     });
   } catch (err) {
-    console.error('GET /api/get-questions failed:', err);
-    return NextResponse.json(
-      { error: 'Failed to load questions' },
-      { status: 500 },
-    );
+    console.error(err);
+    return NextResponse.json({ error: "Failed to load questions" }, { status: 500 });
   }
 }

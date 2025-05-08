@@ -1,52 +1,47 @@
-// app/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import QuestionStepper, { Question } from '@/components/QuestionStepper';
+import { useState, useEffect } from "react";
+import QuestionStepper, { Question } from "@/components/QuestionStepper";
 
-interface SurveyQuestions {
-  locationQuestion: Question;
+interface GetQuestionsResponse {
+  initialLocationQuestion: Question;
+  locationFollowUpQuestion: Question;
   serviceQuestion: Question;
   foodQuestion: Question;
   openQuestion: Question;
 }
 
 export default function SurveyPage() {
-  const [questions, setQuestions] = useState<SurveyQuestions | null>(null);
+  const [qs, setQs] = useState<GetQuestionsResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    fetch('/api/get-questions')
-      .then(res => res.json())
-      .then((data: SurveyQuestions) => {
-        setQuestions(data);
+    fetch("/api/get-questions")
+      .then((res) => res.json())
+      .then((data: GetQuestionsResponse) => {
+        setQs(data);
         setAnswers({
-          [data.locationQuestion.id]: '',
-          [data.serviceQuestion.id]: '',
-          [data.foodQuestion.id]: '',
-          [data.openQuestion.id]: '',
+          [data.initialLocationQuestion.id]: "",
+          [data.locationFollowUpQuestion.id]: "",
+          [data.serviceQuestion.id]: "",
+          [data.foodQuestion.id]: "",
+          [data.openQuestion.id]: "",
         });
       })
       .catch(console.error);
   }, []);
 
-  const handleAnswer = (id: string, value: string) => {
-    setAnswers(prev => ({ ...prev, [id]: value }));
-  };
+  const handleAnswer = (id: string, value: string) =>
+    setAnswers((prev) => ({ ...prev, [id]: value }));
 
   const handleSubmit = async () => {
-    try {
-      const res = await fetch('/api/form-responses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers }),
-      });
-      if (res.ok) setSubmitted(true);
-      else console.error('Submit failed');
-    } catch (err) {
-      console.error(err);
-    }
+    await fetch("/api/form-responses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers }),
+    });
+    setSubmitted(true);
   };
 
   if (submitted) {
@@ -57,19 +52,20 @@ export default function SurveyPage() {
     );
   }
 
-  if (!questions) {
+  if (!qs) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-black">
+      <div className="flex items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-white">
         <p>Loading survey…</p>
       </div>
     );
   }
 
   const allQuestions: Question[] = [
-    questions.locationQuestion,
-    questions.serviceQuestion,
-    questions.foodQuestion,
-    questions.openQuestion,
+    qs.initialLocationQuestion,
+    qs.locationFollowUpQuestion,
+    qs.serviceQuestion,
+    qs.foodQuestion,
+    qs.openQuestion,
   ];
 
   return (
