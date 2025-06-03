@@ -10,7 +10,7 @@ export interface Question {
 export const initialLocationQuestion: Question = {
   id: "loc-1",
   text: "Thank you for visiting us today. Which Tacology location did you visit?",
-  options: ["Brickell", "Wynwood", "Ventura"],
+  options: ["Brickell", "Wynwood"],
 };
 
 // Group 2: mandatory, always after Group 1
