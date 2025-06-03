@@ -9,12 +9,12 @@ export async function GET() {
     const servSnap = await getDocs(collection(db, "serviceQuestions"));
     const foodSnap = await getDocs(collection(db, "foodQuestions"));
 
-    // 🍴 Locate loc-1 and the rest
-    const allLoc = locSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const initial = allLoc.find(q => q.id === "loc-1")!;
-    const followUps = allLoc.filter(q => q.id !== "loc-1");
+    // Find loc-1 (initial) and the follow-ups
+    const allLoc       = locSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const initial      = allLoc.find(q => q.id === "loc-1")!;
+    const followUps    = allLoc.filter(q => q.id !== "loc-1");
 
-    // 🔀 Pick one random from each pool
+    // Random pick helper
     const random = <T>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
 
     const locationFollowUpQuestion = random(followUps);
@@ -23,6 +23,8 @@ export async function GET() {
 
     return NextResponse.json({
       initialLocationQuestion: initial,
+      visitingFromQuestion:   { id: "visit-from", text: "Where are you visiting us from?", options: ["I’m a local", "I work in the neighborhood", "I’m on vacations"] },
+      firstVisitQuestion:      { id: "first-visit", text: "Is this your first visit to Tacology?", options: ["Yes, it’s my first time 🌮", "Nope, I’m a taco lover 🔥"] },
       locationFollowUpQuestion,
       serviceQuestion,
       foodQuestion,
