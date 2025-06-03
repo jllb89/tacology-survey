@@ -5,6 +5,8 @@ import QuestionStepper, { Question } from "@/components/QuestionStepper";
 
 interface GetQuestionsResponse {
   initialLocationQuestion: Question;
+  visitingFromQuestion: Question;
+  firstVisitQuestion: Question;
   locationFollowUpQuestion: Question;
   serviceQuestion: Question;
   foodQuestion: Question;
@@ -18,11 +20,13 @@ export default function SurveyPage() {
 
   useEffect(() => {
     fetch("/api/get-questions")
-      .then((res) => res.json())
+      .then(res => res.json())
       .then((data: GetQuestionsResponse) => {
         setQs(data);
         setAnswers({
           [data.initialLocationQuestion.id]: "",
+          [data.visitingFromQuestion.id]: "",
+          [data.firstVisitQuestion.id]: "",
           [data.locationFollowUpQuestion.id]: "",
           [data.serviceQuestion.id]: "",
           [data.foodQuestion.id]: "",
@@ -33,7 +37,7 @@ export default function SurveyPage() {
   }, []);
 
   const handleAnswer = (id: string, value: string) =>
-    setAnswers((prev) => ({ ...prev, [id]: value }));
+    setAnswers(prev => ({ ...prev, [id]: value }));
 
   const handleSubmit = async () => {
     await fetch("/api/form-responses", {
@@ -54,7 +58,7 @@ export default function SurveyPage() {
 
   if (!qs) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-white">
+      <div className="flex items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-black">
         <p>Loading survey…</p>
       </div>
     );
@@ -62,6 +66,8 @@ export default function SurveyPage() {
 
   const allQuestions: Question[] = [
     qs.initialLocationQuestion,
+    qs.visitingFromQuestion,
+    qs.firstVisitQuestion,
     qs.locationFollowUpQuestion,
     qs.serviceQuestion,
     qs.foodQuestion,

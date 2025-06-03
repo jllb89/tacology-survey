@@ -1,7 +1,7 @@
 // components/QuestionStepper.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, ChangeEvent } from 'react';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/radix-checkbox';
 
@@ -31,7 +31,14 @@ export default function QuestionStepper({
 
   const handleNext = () =>
     current < questions.length - 1 && setCurrent((prev) => prev + 1);
-  const handlePrev = () => current > 0 && setCurrent((prev) => prev - 1);
+  const handlePrev = () =>
+    current > 0 && setCurrent((prev) => prev - 1);
+
+  // For the final textarea step, determine button label
+  const currentAnswer = answers[question.id] || '';
+  const submitLabel = currentAnswer
+    ? 'Submit'
+    : 'Skip & Submit';
 
   return (
     <div className="flex flex-col items-center justify-center h-full bg-[#EB5A95] p-12 font-bourbon text-black">
@@ -84,14 +91,14 @@ export default function QuestionStepper({
           >
             Prev
           </button>
+
           {isLast ? (
             <button
               type="button"
               onClick={onSubmitAction}
-              disabled={!answers[question.id]}
-              className="px-4 py-2 bg-black text-[#EB5A95] rounded disabled:opacity-50"
+              className="px-4 py-2 bg-black text-[#EB5A95] rounded"
             >
-              Submit
+              {submitLabel}
             </button>
           ) : (
             <button
