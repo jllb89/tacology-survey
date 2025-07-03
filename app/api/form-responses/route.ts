@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import nodemailer from 'nodemailer';
+import path from 'path';
 import { buildThankYouEmail } from '@/lib/emailTemplates';
 
 // Create a transporter once
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
     console.log('[form-responses] Email subject:', subject);
     console.log('[form-responses] Email text preview:', text.slice(0, 100) + '…');
 
-    // 5️⃣ Send via Nodemailer
+    // 5️⃣ Send via Nodemailer with inline attachments
     console.log('[form-responses] Sending email via SMTP to:', email);
     const info = await transporter.sendMail({
       from: `"${process.env.FROM_NAME}" <${process.env.FROM_EMAIL}>`,
@@ -91,6 +92,18 @@ export async function POST(request: NextRequest) {
       subject,
       text,
       html,
+      attachments: [
+        {
+          filename: 'logo.png',
+          path: path.join(process.cwd(), 'public', 'logo.png'),
+          cid: 'logo',        // matches <img src="cid:logo">
+        },
+        {
+          filename: '10off.png',
+          path: path.join(process.cwd(), 'public', '10off.png'),
+          cid: 'discount',    // matches <img src="cid:discount">
+        },
+      ],
     });
     console.log('[form-responses] Email sent. Message ID:', info.messageId);
     console.log('[form-responses] Nodemailer response:', info);
