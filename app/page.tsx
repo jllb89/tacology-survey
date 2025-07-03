@@ -1,3 +1,4 @@
+// app/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,49 +8,59 @@ import QuestionStepper, { Question } from '@/components/QuestionStepper';
 interface GetQuestionsResponse {
   initialLocationQuestion: Question;
   visitingFromQuestion: Question;
+  hearAboutQuestion: Question;
   firstVisitQuestion: Question;
   locationFollowUpQuestion: Question;
   serviceQuestion: Question;
   foodQuestion: Question;
+  salsaQuestion: Question;
+  brandValueQuestion: Question;
+  recommendQuestion: Question;
   openQuestion: Question;
 }
 
 export default function SurveyPage() {
-  // New: track user info & which stage we’re in
+  // User info & current stage
   const [name, setName]     = useState('');
   const [email, setEmail]   = useState('');
   const [stage, setStage]   = useState<'info'|'survey'|'thanks'>('info');
 
-  const [qs, setQs]         = useState<GetQuestionsResponse|null>(null);
+  const [qs, setQs]           = useState<GetQuestionsResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string,string>>({});
 
-  // Fetch questions (only when we hit the survey stage)
+  // Once we move to "survey", fetch the questions
   useEffect(() => {
     if (stage !== 'survey') return;
+
     fetch('/api/get-questions')
       .then(r => r.json())
       .then((data: GetQuestionsResponse) => {
         setQs(data);
+        // initialize all answer slots
         setAnswers({
           [data.initialLocationQuestion.id]: '',
-          [data.visitingFromQuestion.id]: '',
-          [data.firstVisitQuestion.id]: '',
+          [data.visitingFromQuestion.id]:   '',
+          [data.hearAboutQuestion.id]:      '',
+          [data.firstVisitQuestion.id]:     '',
           [data.locationFollowUpQuestion.id]: '',
-          [data.serviceQuestion.id]: '',
-          [data.foodQuestion.id]: '',
-          [data.openQuestion.id]: '',
+          [data.serviceQuestion.id]:        '',
+          [data.foodQuestion.id]:           '',
+          [data.salsaQuestion.id]:          '',
+          [data.brandValueQuestion.id]:     '',
+          [data.recommendQuestion.id]:      '',
+          [data.openQuestion.id]:           '',
         });
       })
       .catch(console.error);
   }, [stage]);
 
-  // Advance from info → survey
+  // Start the survey (requires email)
   const startSurvey = () => {
-    if (!email) return;    // make email mandatory
+    if (!email) return;
     setStage('survey');
   };
 
-  // Handle final submit
+  // Submit everything
   const handleSubmit = async () => {
     await fetch(`/api/form-responses?email=${encodeURIComponent(email)}`, {
       method: 'POST',
@@ -59,17 +70,12 @@ export default function SurveyPage() {
     setStage('thanks');
   };
 
-  // 1️⃣ INFO SCREEN
+  // 1️⃣ Info screen
   if (stage === 'info') {
     return (
       <div className="p-8 max-w-md mx-auto font-bourbon text-black">
         <div className="flex justify-center mb-8">
-          <Image
-            src="/logo.svg"
-            alt="Tacology Logo"
-            width={180}
-            height={90}
-          />
+          <Image src="/logo.svg" alt="Tacology Logo" width={180} height={90}/>
         </div>
         <h1 className="text-2xl mb-4">Help us improve—and get 10% off!</h1>
         <p className="mb-6">
@@ -100,48 +106,44 @@ export default function SurveyPage() {
     );
   }
 
-  // 2️⃣ SURVEY LOADING SCREEN
+  // 2️⃣ Loading screen
   if (stage === 'survey' && !qs) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-black">
-        <Image
-          src="/logo.svg"
-          alt="Tacology Logo"
-          width={180}
-          height={90}
-          className="mb-12"
-        />
+        <Image src="/logo.svg" alt="Tacology Logo" width={180} height={90} className="mb-12" />
         <h2 className="text-2xl font-semibold">Loading survey…</h2>
       </div>
     );
   }
 
-  // 3️⃣ THANK YOU SCREEN
+  // 3️⃣ Thank-you screen
   if (stage === 'thanks') {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-black">
-        <Image
-          src="/logo.svg"
-          alt="Tacology Logo"
-          width={180}
-          height={90}
-          className="mb-12"
-        />
-        <h2 className="text-2xl font-semibold">
+      <div className="flex flex-col items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-black px-4 text-center">
+        <Image src="/logo.svg" alt="Tacology Logo" width={180} height={90} className="mb-12" />
+        <h2 className="text-2xl font-semibold mb-4">
           Thanks, {name}! We’ll see you soon. 🎉
         </h2>
+        <p className="text-sm">
+          We’ve sent you a confirmation email—if it doesn’t appear in your inbox,<br/>
+          please check your spam or promotions folder.
+        </p>
       </div>
     );
   }
 
-  // 4️⃣ SURVEY STEPPER
+  // 4️⃣ Survey stepper
   const allQuestions: Question[] = [
     qs!.initialLocationQuestion,
     qs!.visitingFromQuestion,
+    qs!.hearAboutQuestion,
     qs!.firstVisitQuestion,
     qs!.locationFollowUpQuestion,
     qs!.serviceQuestion,
     qs!.foodQuestion,
+    qs!.salsaQuestion,
+    qs!.brandValueQuestion,
+    qs!.recommendQuestion,
     qs!.openQuestion,
   ];
 
