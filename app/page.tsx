@@ -1,4 +1,3 @@
-// app/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,60 +6,56 @@ import QuestionStepper, { Question } from '@/components/QuestionStepper';
 
 interface GetQuestionsResponse {
   initialLocationQuestion: Question;
-  visitingFromQuestion: Question;
-  hearAboutQuestion: Question;
-  firstVisitQuestion: Question;
+  visitingFromQuestion:   Question;
+  hearAboutQuestion:      Question;
+  firstVisitQuestion:     Question;
   locationFollowUpQuestion: Question;
-  serviceQuestion: Question;
-  foodQuestion: Question;
-  salsaQuestion: Question;
-  brandValueQuestion: Question;
-  recommendQuestion: Question;
-  openQuestion: Question;
+  serviceQuestion:        Question;
+  foodQuestion:           Question;
+  salsaQuestion:          Question;       // <-- added
+  brandValueQuestion:     Question;       // <-- added
+  recommendQuestion:      Question;
+  openQuestion:           Question;
 }
 
 export default function SurveyPage() {
-  // User info & current stage
-  const [name, setName]     = useState('');
-  const [email, setEmail]   = useState('');
-  const [stage, setStage]   = useState<'info'|'survey'|'thanks'>('info');
+  const [name, setName]   = useState('');
+  const [email, setEmail] = useState('');
+  const [stage, setStage] = useState<'info'|'survey'|'thanks'>('info');
 
-  const [qs, setQs]           = useState<GetQuestionsResponse | null>(null);
+  const [qs, setQs]           = useState<GetQuestionsResponse|null>(null);
   const [answers, setAnswers] = useState<Record<string,string>>({});
 
-  // Once we move to "survey", fetch the questions
   useEffect(() => {
     if (stage !== 'survey') return;
-
     fetch('/api/get-questions')
       .then(r => r.json())
       .then((data: GetQuestionsResponse) => {
         setQs(data);
-        // initialize all answer slots
+
+        // Initialize **all** question IDs
         setAnswers({
-          [data.initialLocationQuestion.id]: '',
-          [data.visitingFromQuestion.id]:   '',
-          [data.hearAboutQuestion.id]:      '',
-          [data.firstVisitQuestion.id]:     '',
+          [data.initialLocationQuestion.id]:   '',
+          [data.visitingFromQuestion.id]:     '',
+          [data.hearAboutQuestion.id]:        '',
+          [data.firstVisitQuestion.id]:       '',
           [data.locationFollowUpQuestion.id]: '',
-          [data.serviceQuestion.id]:        '',
-          [data.foodQuestion.id]:           '',
-          [data.salsaQuestion.id]:          '',
-          [data.brandValueQuestion.id]:     '',
-          [data.recommendQuestion.id]:      '',
-          [data.openQuestion.id]:           '',
+          [data.serviceQuestion.id]:          '',
+          [data.foodQuestion.id]:             '',
+          [data.salsaQuestion.id]:            '',  // <-- now initialized
+          [data.brandValueQuestion.id]:       '',  // <-- now initialized
+          [data.recommendQuestion.id]:        '',
+          [data.openQuestion.id]:             '',
         });
       })
       .catch(console.error);
   }, [stage]);
 
-  // Start the survey (requires email)
   const startSurvey = () => {
     if (!email) return;
     setStage('survey');
   };
 
-  // Submit everything
   const handleSubmit = async () => {
     await fetch(`/api/form-responses?email=${encodeURIComponent(email)}`, {
       method: 'POST',
@@ -75,12 +70,10 @@ export default function SurveyPage() {
     return (
       <div className="p-8 max-w-md mx-auto font-bourbon text-black">
         <div className="flex justify-center mb-8">
-          <Image src="/logo.svg" alt="Tacology Logo" width={180} height={90}/>
+          <Image src="/logo.svg" alt="Tacology Logo" width={180} height={90} />
         </div>
         <h1 className="text-2xl mb-4">Help us improve—and get 10% off!</h1>
-        <p className="mb-6">
-          Complete our quick survey and enjoy 10% off your next Tacology visit.
-        </p>
+        <p className="mb-6">Complete our quick survey and enjoy 10% off your next visit.</p>
         <label className="block mb-2">Name</label>
         <input
           type="text"
@@ -106,7 +99,7 @@ export default function SurveyPage() {
     );
   }
 
-  // 2️⃣ Loading screen
+  // 2️⃣ Loading
   if (stage === 'survey' && !qs) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-black">
@@ -116,11 +109,11 @@ export default function SurveyPage() {
     );
   }
 
-  // 3️⃣ Thank-you screen
+  // 3️⃣ Thank-you
   if (stage === 'thanks') {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#EB5A95] font-bourbon text-black px-4 text-center">
-        <Image src="/logo.svg" alt="Tacology Logo" width={180} height={90} className="mb-12" />
+        <Image src="/logo.svg" alt="Tacology Logo" width={180} height={90} className="mb-12"/>
         <h2 className="text-2xl font-semibold mb-4">
           Thanks, {name}! We’ll see you soon. 🎉
         </h2>
@@ -132,7 +125,7 @@ export default function SurveyPage() {
     );
   }
 
-  // 4️⃣ Survey stepper
+  // 4️⃣ Stepper
   const allQuestions: Question[] = [
     qs!.initialLocationQuestion,
     qs!.visitingFromQuestion,
@@ -141,8 +134,8 @@ export default function SurveyPage() {
     qs!.locationFollowUpQuestion,
     qs!.serviceQuestion,
     qs!.foodQuestion,
-    qs!.salsaQuestion,
-    qs!.brandValueQuestion,
+    qs!.salsaQuestion,         // <-- now matches GET
+    qs!.brandValueQuestion,    // <-- now matches GET
     qs!.recommendQuestion,
     qs!.openQuestion,
   ];

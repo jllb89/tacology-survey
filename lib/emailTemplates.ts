@@ -10,6 +10,7 @@ export interface EmailContent {
  * Build the “Thank You / 10% Off” email
  *
  * Note: Images are embedded inline via Content-IDs (`cid:logo` and `cid:discount`).
+ * We also include a human-readable timestamp after the discount logo.
  */
 export function buildThankYouEmail(
   name: string,
@@ -17,12 +18,29 @@ export function buildThankYouEmail(
 ): EmailContent {
   const safeName = name?.trim() || 'there';
   const subject = 'Thanks for your feedback – show this for 10% off!';
+  
+  // Build a readable timestamp
+  const now = new Date();
+  const formattedDate = now.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const formattedTime = now.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+  const timestampLine = `Sent on ${formattedDate} at ${formattedTime}`;
+
+  // Plain-text body
   const text = `Hi ${safeName},\n\n` +
     `Thank you for completing our survey! ` +
     `Show this email to your waiter to receive 10% off your next visit to Tacology.\n\n` +
+    `${timestampLine}\n\n` +
     `We appreciate your input—see you soon!\n` +
     `Tacology Miami`;
 
+  // HTML body
   const html = `
   <!DOCTYPE html>
   <html lang="en">
@@ -58,6 +76,11 @@ export function buildThankYouEmail(
             alt="10% Off!"
             style="display:block;margin-top:16px;width:260px;height:auto;"
           />
+
+          <!-- Timestamp -->
+          <p style="margin:8px 0 0;font-size:12px;color:#555;">
+            ${timestampLine}
+          </p>
 
         </td>
       </tr>
