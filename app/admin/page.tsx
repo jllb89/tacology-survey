@@ -38,22 +38,23 @@ type StatsMap = Record<
 const ALLOWED_USERS = ["jorge", "alberto", "jack", "diego"];
 
 export default async function AdminPage(): Promise<ReactNode> {
-  // 🔒 Check login cookie
+  // 1️⃣ Auth guard
   const cookieStore = await cookies();
   const adminUser = cookieStore.get("admin-user")?.value;
   if (!adminUser || !ALLOWED_USERS.includes(adminUser)) {
     redirect("/admin/login");
   }
 
-  // 🗓️ Only include responses on or after July 1, 2025
+  // 2️⃣ Build our Firestore query: only completed & post-July1
   const cutoff = Timestamp.fromDate(new Date("2025-07-01T00:00:00Z"));
   const respQuery = query(
     collection(db, "formResponses"),
+    where("completed", "==", true),
     where("createdAt", ">=", cutoff)
   );
   const snap = await getDocs(respQuery);
 
-  // 🧮 Tally answers per question
+  // 3️⃣ Tally answers per question
   const tallies: Record<string, Record<string, number>> = {};
   snap.forEach((doc) => {
     const data = doc.data() as any;
@@ -64,7 +65,7 @@ export default async function AdminPage(): Promise<ReactNode> {
     }
   });
 
-  // 📊 Build stats (per-question total + percentages)
+  // 4️⃣ Build per-question stats
   const stats: StatsMap = {};
   for (const [qid, counts] of Object.entries(tallies)) {
     const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -75,7 +76,7 @@ export default async function AdminPage(): Promise<ReactNode> {
     stats[qid] = { counts, percentages, total };
   }
 
-  // 📋 All question definitions, in display order
+  // 5️⃣ List out **every** question in the exact order you want
   const allQuestions: Question[] = [
     initialLocationQuestion,
     visitingFromQuestion,
@@ -90,6 +91,7 @@ export default async function AdminPage(): Promise<ReactNode> {
     openQuestion,
   ];
 
+  // 6️⃣ Render the dashboard
   return (
     <div className="p-8 max-w-4xl mx-auto font-bourbon">
       <div className="flex justify-between items-center mb-6">
@@ -107,7 +109,6 @@ export default async function AdminPage(): Promise<ReactNode> {
         return (
           <section key={q.id} className="mb-8">
             <h2 className="text-xl font-semibold mb-2">{q.text}</h2>
-
             {!s ? (
               <p className="text-sm text-gray-600">No responses yet.</p>
             ) : (
