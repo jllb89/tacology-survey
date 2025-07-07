@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       name,
       email,
       answers,
+      completed: true,
       createdAt: serverTimestamp(),
     });
     console.log('[form-responses] Firestore save complete');

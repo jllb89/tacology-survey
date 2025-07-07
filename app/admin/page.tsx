@@ -38,14 +38,14 @@ type StatsMap = Record<
 const ALLOWED_USERS = ["jorge", "alberto", "jack", "diego"];
 
 export default async function AdminPage(): Promise<ReactNode> {
-  // 1️⃣ Auth guard
+  // 🔒 check cookie
   const cookieStore = await cookies();
   const adminUser = cookieStore.get("admin-user")?.value;
   if (!adminUser || !ALLOWED_USERS.includes(adminUser)) {
     redirect("/admin/login");
   }
 
-  // 2️⃣ Build our Firestore query: only completed & post-July1
+  // 🗓️ Firestore query: only responses marked completed & after July 1
   const cutoff = Timestamp.fromDate(new Date("2025-07-01T00:00:00Z"));
   const respQuery = query(
     collection(db, "formResponses"),
@@ -54,18 +54,23 @@ export default async function AdminPage(): Promise<ReactNode> {
   );
   const snap = await getDocs(respQuery);
 
-  // 3️⃣ Tally answers per question
+  // 👉 filter out any docs that never answered the second question
+  const docs = snap.docs.filter(doc => {
+    const a = (doc.data().answers as Record<string,string> | undefined) || {};
+    return typeof a["visit-from"] === "string";
+  });
+
+  // 🧮 tally counts per question (only from filtered docs)
   const tallies: Record<string, Record<string, number>> = {};
-  snap.forEach((doc) => {
-    const data = doc.data() as any;
-    const answers: Record<string, string> = data.answers || {};
+  for (const doc of docs) {
+    const answers = doc.data().answers as Record<string,string>;
     for (const [qid, val] of Object.entries(answers)) {
       tallies[qid] ||= {};
       tallies[qid][val] = (tallies[qid][val] || 0) + 1;
     }
-  });
+  }
 
-  // 4️⃣ Build per-question stats
+  // 📊 build stats: per-question total + percentages
   const stats: StatsMap = {};
   for (const [qid, counts] of Object.entries(tallies)) {
     const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -76,7 +81,7 @@ export default async function AdminPage(): Promise<ReactNode> {
     stats[qid] = { counts, percentages, total };
   }
 
-  // 5️⃣ List out **every** question in the exact order you want
+  // 📋 assemble every question in desired order
   const allQuestions: Question[] = [
     initialLocationQuestion,
     visitingFromQuestion,
@@ -91,7 +96,6 @@ export default async function AdminPage(): Promise<ReactNode> {
     openQuestion,
   ];
 
-  // 6️⃣ Render the dashboard
   return (
     <div className="p-8 max-w-4xl mx-auto font-bourbon">
       <div className="flex justify-between items-center mb-6">
@@ -123,7 +127,9 @@ export default async function AdminPage(): Promise<ReactNode> {
                         className="flex justify-between border-b pb-1"
                       >
                         <span>{opt}</span>
-                        <span>{cnt} ({pct}%)</span>
+                        <span>
+                          {cnt} ({pct}%)
+                        </span>
                       </li>
                     );
                   })}
