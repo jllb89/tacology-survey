@@ -38,6 +38,10 @@ export default function LoginPage() {
             <label className="block mb-1">Username</label>
             <input
               type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              autoComplete="username"
               value={username}
               onChange={e => setUsername(e.target.value)}
               className="w-full border p-2 rounded"
@@ -48,6 +52,10 @@ export default function LoginPage() {
             <label className="block mb-1">Password</label>
             <input
               type="password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              autoComplete="current-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="w-full border p-2 rounded"
