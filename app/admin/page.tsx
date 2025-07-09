@@ -20,7 +20,7 @@ import {
   Question,
 } from "@/data/questions";
 
-const ALLOWED_USERS = ["jorge","alberto","jack","diego"];
+const ALLOWED_USERS = ["jorge","alberto","jack","diego","susana"];
 
 export default async function AdminPage(): Promise<ReactNode> {
   // Auth guard

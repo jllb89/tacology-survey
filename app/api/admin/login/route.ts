@@ -1,7 +1,7 @@
 // app/api/admin/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-const ALLOWED_USERS = ["jorge", "alberto", "jack", "diego"];
+const ALLOWED_USERS = ["jorge", "alberto", "jack", "diego", "susana"];
 
 export async function POST(request: NextRequest) {
   // 1️⃣ Parse & normalize inputs

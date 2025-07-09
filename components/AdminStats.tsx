@@ -153,7 +153,7 @@ export default function AdminStats({
             {comments.map((c, i) => (
               <li
                 key={i}
-                className="p-3 bg-white rounded text-gray-800"
+                className="p-3 bg-white rounded text-black"
               >
                 {c}
               </li>
