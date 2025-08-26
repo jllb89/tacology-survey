@@ -109,14 +109,14 @@ export default function AdminStats({
 
   // 6️⃣ tiny donut pie chart (CSS conic-gradient) — no deps
   const PALETTE = [
-    '#111827', // gray-900
-    '#ef4444', // red-500
-    '#3b82f6', // blue-500
-    '#10b981', // emerald-500
-    '#f59e0b', // amber-500
-    '#8b5cf6', // violet-500
-    '#ec4899', // pink-500
-    '#14b8a6', // teal-500
+    '#ff2ec1', // neon pink
+    '#00eaff', // neon cyan
+    '#b8ff00', // neon lime
+    '#faff00', // neon yellow
+    '#b026ff', // neon purple
+    '#ff8a00', // neon orange
+    '#00ffa3', // neon mint
+    '#00b3ff', // neon blue
   ];
 
   const strip = stripEmojis; // alias for brevity below
@@ -144,7 +144,6 @@ export default function AdminStats({
     size?: number;
   }) {
     const bg = buildConicGradient(segments);
-    const inner = Math.floor(size * 0.62);
     return (
       <div
         className="relative"
@@ -154,10 +153,6 @@ export default function AdminStats({
         <div
           className="rounded-full"
           style={{ width: size, height: size, background: bg }}
-        />
-        <div
-          className="absolute inset-0 m-auto rounded-full bg-white border border-black/10"
-          style={{ width: inner, height: inner }}
         />
       </div>
     );
