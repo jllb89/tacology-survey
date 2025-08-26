@@ -108,6 +108,7 @@ export default function AdminStats({
   const totalEntries = filtered.length;
 
   // 6️⃣ tiny donut pie chart (CSS conic-gradient) — no deps
+  const ACCENT = '#F59EC0';
   const PALETTE = [
     '#ff2ec1', // neon pink
     '#00eaff', // neon cyan
@@ -157,7 +158,7 @@ export default function AdminStats({
         />
         <div
           className="absolute inset-0 m-auto rounded-full"
-          style={{ width: inner, height: inner, backgroundColor: '#F59EC0' }}
+          style={{ width: inner, height: inner, backgroundColor: ACCENT }}
         />
       </div>
     );
@@ -172,9 +173,12 @@ export default function AdminStats({
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`mr-2 px-3 py-1 rounded ${
-              filter === f ? 'bg-black text-white' : 'bg-white border'
-            }`}
+            className={`mr-2 px-3 py-1 rounded border transition`}
+            style={
+              filter === f
+                ? { backgroundColor: '#ffffff', borderColor: ACCENT, color: '#000' }
+                : { backgroundColor: ACCENT, borderColor: ACCENT, color: '#000' }
+            }
           >
             {f === 'all' ? 'View All' : f}
           </button>
@@ -253,7 +257,8 @@ export default function AdminStats({
               {pageComments.map((c, i) => (
                 <li
                   key={`${commentPage}-${i}`}
-                  className="p-3 bg-white rounded text-black"
+                  className="p-3 rounded text-black border"
+                  style={{ backgroundColor: ACCENT, borderColor: ACCENT }}
                 >
                   {c}
                 </li>
@@ -264,8 +269,13 @@ export default function AdminStats({
                 onClick={() => setCommentPage((p) => Math.max(0, p - 1))}
                 disabled={commentPage === 0}
                 className={`px-3 py-1 rounded border ${
-                  commentPage === 0 ? 'opacity-50 cursor-not-allowed' : 'bg-white'
+                  commentPage === 0 ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
+                style={
+                  commentPage === 0
+                    ? { backgroundColor: '#ffffff', borderColor: ACCENT, color: '#000' }
+                    : { backgroundColor: ACCENT, borderColor: ACCENT, color: '#000' }
+                }
                 aria-label="Previous comments page"
               >
                 Prev
@@ -280,8 +290,13 @@ export default function AdminStats({
                 onClick={() => setCommentPage((p) => (endIdx >= comments.length ? p : p + 1))}
                 disabled={endIdx >= comments.length}
                 className={`px-3 py-1 rounded border ${
-                  endIdx >= comments.length ? 'opacity-50 cursor-not-allowed' : 'bg-white'
+                  endIdx >= comments.length ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
+                style={
+                  endIdx >= comments.length
+                    ? { backgroundColor: '#ffffff', borderColor: ACCENT, color: '#000' }
+                    : { backgroundColor: ACCENT, borderColor: ACCENT, color: '#000' }
+                }
                 aria-label="Next comments page"
               >
                 Next
