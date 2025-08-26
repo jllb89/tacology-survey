@@ -32,12 +32,16 @@ export default function AdminStats({
   // 2️⃣ apply the filter
   const filtered = useMemo(() => {
     if (filter === 'all') return responses;
-    return responses.filter((r) => r.answers[LOCATION_QID] === filter);
+    const target = filter.toLowerCase();
+    return responses.filter((r) => {
+      const raw = r.answers[LOCATION_QID] || '';
+      const norm = stripEmojis(raw).trim().toLowerCase();
+      return norm === target;
+    });
   }, [filter, responses]);
 
   // 3️⃣ tally counts + compute per‐question totals & percentages
   const stats = useMemo(() => {
-    // a) build raw counts
     const tallies: Record<string, Record<string, number>> = {};
     filtered.forEach((r) => {
       for (const [qid, val] of Object.entries(r.answers)) {
@@ -55,8 +59,6 @@ export default function AdminStats({
 
     questions.forEach((q) => {
       if (!q.options) return; // skip open‐text
-      // If filtering, skip the first loc question entirely
-      if (filter !== 'all' && q.id === LOCATION_QID) return;
 
       const counts = tallies[q.id] || {};
       const total = q.options.reduce(
@@ -194,7 +196,6 @@ export default function AdminStats({
   <div className="max-w-8xl mx-auto grid grid-cols-1 gap-10 xl:gap-12">
         {questions.map((q) => {
           if (!q.options) return null;
-          if (filter !== 'all' && q.id === LOCATION_QID) return null;
 
           const s = stats[q.id];
           return (
