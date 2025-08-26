@@ -6,7 +6,7 @@ export interface Question {
   options?: string[];
 }
 
-// Group 1: always show this
+// Group 1: always shown
 export const initialLocationQuestion: Question = {
   id: "loc-1",
   text: "🎉 Thank you for visiting us today! Which Tacology location did you visit?",

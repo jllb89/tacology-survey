@@ -144,6 +144,7 @@ export default function AdminStats({
     size?: number;
   }) {
     const bg = buildConicGradient(segments);
+    const inner = Math.floor(size * 0.62);
     return (
       <div
         className="relative"
@@ -153,6 +154,10 @@ export default function AdminStats({
         <div
           className="rounded-full"
           style={{ width: size, height: size, background: bg }}
+        />
+        <div
+          className="absolute inset-0 m-auto rounded-full"
+          style={{ width: inner, height: inner, backgroundColor: '#F59EC0' }}
         />
       </div>
     );
