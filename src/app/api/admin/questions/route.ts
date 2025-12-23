@@ -7,7 +7,7 @@ export async function GET() {
 	const supabase = createServiceClient();
 	const { data, error } = await supabase
 		.from("questions")
-		.select("id, code, prompt, question_type, options, sort_order, group_key")
+		.select("id, code, prompt, question_type, options, sort_order, group_key, is_active")
 		.order("sort_order", { ascending: true });
 
 	if (error) {
@@ -36,6 +36,7 @@ export async function PUT(request: Request) {
 			options: q.options ?? {},
 			sort_order: Number.isFinite(q.sort_order) ? q.sort_order : 0,
 			group_key: q.group_key ?? "core_v2",
+			is_active: q.is_active !== false,
 		}));
 
 		// Basic required checks

@@ -17,6 +17,7 @@ type Question = {
   sort_order: number;
   options?: Record<string, unknown> | null;
   choices?: string[];
+  is_active?: boolean;
 };
 
 const TYPE_OPTIONS: { value: QuestionType; label: string; hint: string }[] = [
@@ -59,6 +60,12 @@ export default function AdminSurveyPage() {
   );
 
   useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
@@ -93,6 +100,7 @@ export default function AdminSurveyPage() {
             options: q.options,
             group_key: q.group_key ?? "core_v2",
             choices: labels,
+            is_active: q.is_active ?? true,
           };
         });
         setQuestions(mapped.sort((a, b) => a.sort_order - b.sort_order));
@@ -206,6 +214,17 @@ export default function AdminSurveyPage() {
     setDirty(true);
   };
 
+  const handleActiveToggle = (key: string) => {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.key === key
+          ? { ...q, is_active: !(q.is_active ?? true) }
+          : q,
+        ),
+    );
+    setDirty(true);
+  };
+
   const handleChoiceChange = (key: string, idx: number, value: string) => {
     setQuestions((prev) =>
       prev.map((q) =>
@@ -278,6 +297,7 @@ export default function AdminSurveyPage() {
         },
         sort_order: idx,
         group_key: q.group_key || "core_v2",
+        is_active: q.is_active !== false,
       })),
     };
     try {
@@ -364,17 +384,30 @@ export default function AdminSurveyPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-xs font-semibold text-gray-500">Question {questions.indexOf(q) + 1}</div>
-                  <button
-                    onClick={() => handleRequiredToggle(q.key)}
-                    type="button"
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                      q.required
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-gray-50 text-gray-500 hover:bg-gray-100"
-                    }`}
-                  >
-                    {q.required ? "Required" : "Optional"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleRequiredToggle(q.key)}
+                      type="button"
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        q.required
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      {q.required ? "Required" : "Optional"}
+                    </button>
+                    <button
+                      onClick={() => handleActiveToggle(q.key)}
+                      type="button"
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        q.is_active !== false
+                          ? "bg-pink-50 text-pink-700"
+                          : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                      }`}
+                    >
+                      {q.is_active !== false ? "Active" : "Inactive"}
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-3 space-y-2">
                   <label className="text-xs font-semibold text-gray-600">Prompt</label>
@@ -469,7 +502,13 @@ export default function AdminSurveyPage() {
             <div key={`preview-${q.key}`} className="rounded-lg border border-gray-100 bg-white px-4 py-3 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-semibold text-gray-500">Q{idx + 1}</div>
-                <span className="text-xs text-gray-400">{q.type === "single_choice" ? "1–5" : q.type === "scale_0_10" ? "0–10" : "Free text"}</span>
+                <span className="text-xs text-gray-400">
+                  {q.type === "single_choice"
+                    ? "Single choice"
+                    : q.type === "scale_0_10"
+                      ? "0–10 scale"
+                      : "Free text"}
+                </span>
               </div>
               <p className="mt-2 text-sm font-medium text-gray-900">{q.prompt}</p>
               {q.description ? <p className="text-xs text-gray-500">{q.description}</p> : null}
@@ -481,6 +520,33 @@ export default function AdminSurveyPage() {
                 >
                   {q.required ? "Required" : "Optional"}
                 </span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {q.type === "single_choice" ? (
+                  <ul className="space-y-1">
+                    {(q.choices && q.choices.length ? q.choices : ["Option 1", "Option 2", "Option 3"]).map((c, i) => (
+                      <li
+                        key={`${q.key}-prev-choice-${i}`}
+                        className="flex items-center gap-2 text-sm text-gray-700"
+                      >
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300"></span>
+                        <span>{c}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : q.type === "scale_0_10" ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <span>0</span>
+                    <div className="flex-1 rounded-full bg-gray-100 p-1">
+                      <div className="h-1 rounded-full bg-pink-200"></div>
+                    </div>
+                    <span>10</span>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
+                    Free response
+                  </div>
+                )}
               </div>
             </div>
           ))}

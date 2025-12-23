@@ -67,7 +67,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <div className="flex min-h-screen">
-        <aside className="hidden md:flex w-64 flex-col border-r border-neutral-200 bg-white px-4 py-6">
+        <aside className="hidden md:flex w-64 flex-col border-r border-neutral-200 bg-white px-4 py-6 fixed inset-y-0 left-0">
           <div className="mb-6 flex items-center gap-3 px-2 text-sm font-semibold text-neutral-900">
             <Image src="/tacologo.svg" alt="Tacology" width={120} height={32} priority />
             <span className="sr-only">Tacology</span>
@@ -75,13 +75,13 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <AdminNav links={navLinks} />
         </aside>
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col md:ml-64">
           <header className="sticky top-0 z-10 flex items-center justify-between border-b border-neutral-200 bg-white/80 px-4 py-3 backdrop-blur">
             <div className="flex items-center gap-2 text-sm text-neutral-600">
               <span className="h-2 w-2 rounded-full bg-[#EB5A95]" />
               <span>Signed in</span>
             </div>
-            <div className="text-sm font-medium text-neutral-800">Tacology Admin</div>
+            <div className="text-sm font-medium text-neutral-800 truncate">{session.user.email}</div>
           </header>
 
           <main className="px-4 py-6 md:px-8 md:py-8">
