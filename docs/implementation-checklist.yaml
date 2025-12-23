@@ -1,0 +1,87 @@
+phases:
+  - name: environment
+    items:
+      - label: Add Supabase keys (anon, publishable, service role) to envs
+        status: completed
+      - label: Add OpenAI key; set NEXT_PUBLIC_SITE_URL
+        status: completed
+      - label: Add SMTP vars (host, port, secure, user, pass, from)
+        status: pending
+      - label: Add Twilio vars (account SID, auth token, from, alert number)
+        status: pending
+      - label: Render env vars configured (no .env committed)
+        status: pending
+
+  - name: data-model
+    items:
+      - label: Verify migrations applied (customers, survey_responses, response_embeddings, admin_users)
+        status: completed
+      - label: Confirm pgvector extension enabled
+        status: completed
+      - label: Enable RLS + policies for customers/responses/embeddings
+        status: completed
+
+  - name: backend-apis
+    items:
+      - label: Implement survey submit API (validate required answers, persist, trigger embed)
+        status: completed
+      - label: Implement survey start API (customer lookup/create)
+        status: completed
+      - label: Implement admin customers CRUD and exports
+        status: completed
+      - label: Implement analytics stats endpoints with filters (location, date range)
+        status: completed
+
+  - name: ai
+    items:
+      - label: Embed full responses (and optional per open answer) with OpenAI
+        status: completed
+      - label: Add vector search helper for patterns/time ranges
+        status: completed
+      - label: Store model name and embedding metadata
+        status: completed
+
+  - name: notifications
+    items:
+      - label: Email alerts on low rating/negative sentiment
+        status: completed
+      - label: SMS alert path prepared (Twilio creds, toggle)
+        status: completed
+
+  - name: frontend
+    items:
+      - label: Public survey flow (incentive -> questions -> confirmation)
+        status: completed
+      - label: Admin layout and pages (/admin, /admin/responses, /admin/customers, /admin/survey)
+        status: completed
+      - label: Admin dashboard analytics with filters and % sums to 100%
+        status: pending
+      - label: Customer profile view (response history)
+        status: pending
+      - label: Export UI actions (CSV/XLSX)
+        status: pending
+      - label: Admin survey builder drag/drop, type select, save
+        status: completed
+
+  - name: auth
+    items:
+      - label: Supabase Auth for admins (email/password) with session guard on /admin APIs and pages
+        status: completed
+      - label: admin_profiles role metadata check
+        status: completed
+
+  - name: quality
+    items:
+      - label: Input validation + rate limiting on public endpoints
+        status: pending
+      - label: Basic integration tests for filters/exports/alerts
+        status: pending
+      - label: Logging for email/SMS failures
+        status: pending
+
+  - name: deployment
+    items:
+      - label: Render build succeeds with envs set
+        status: pending
+      - label: Smoke test production survey + admin
+        status: pending
