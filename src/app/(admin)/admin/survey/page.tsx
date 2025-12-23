@@ -80,6 +80,7 @@ export default function AdminSurveyPage() {
             question_type: QuestionType;
             sort_order: number;
             group_key?: string;
+            is_active?: boolean;
           }[];
         };
         if (cancelled) return;
@@ -323,14 +324,16 @@ export default function AdminSurveyPage() {
   return (
     <div className="space-y-6">
       {toast ? (
-        <div
-          className={`rounded-lg border px-3 py-2 text-sm ${
-            toast.type === "success"
-              ? "border-green-200 bg-green-50 text-green-700"
-              : "border-rose-200 bg-rose-50 text-rose-700"
-          }`}
-        >
-          {toast.message}
+        <div className="fixed inset-x-0 top-6 z-50 flex justify-center">
+          <div
+            className={`rounded-lg border px-4 py-2 text-sm shadow-md ${
+              toast.type === "success"
+                ? "border-green-200 bg-green-50 text-green-700"
+                : "border-rose-200 bg-rose-50 text-rose-700"
+            }`}
+          >
+            {toast.message}
+          </div>
         </div>
       ) : null}
       <header className="space-y-2">
