@@ -38,5 +38,17 @@ export async function listCustomerVisits(customerId: string) {
 
 	if (error) throw error;
 
-	return (data as Visit[]) || [];
+	const visits = ((data as any[]) || []).map((row) => ({
+		id: row.id as string,
+		location: row.location as "brickell" | "wynwood",
+		created_at: row.created_at as string,
+		answers: ((row.answers as any[]) || []).map((ans) => ({
+			id: ans.id as string,
+			value_text: ans.value_text as string | null,
+			value_number: ans.value_number as number | null,
+			question: (Array.isArray(ans.question) ? ans.question[0] : ans.question) as VisitAnswer["question"],
+		})),
+	}));
+
+	return visits as Visit[];
 }

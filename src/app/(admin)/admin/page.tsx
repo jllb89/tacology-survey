@@ -370,24 +370,25 @@ export default function AdminHomePage() {
 			</header>
 
 			<section className="grid gap-4 md:grid-cols-2">
-				<div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+				<div className="rounded-2xl border border-pink-100 bg-gradient-to-br from-[#EB5A95]/10 to-white p-5 shadow-sm">
 					<div className="flex items-start justify-between">
 						<div>
-							<h2 className="text-sm font-semibold text-neutral-800">General NPS</h2>
-							<p className="text-xs text-neutral-500">Overall promoter / passive / detractor split.</p>
+							<p className="text-[11px] uppercase tracking-[0.14em] text-[#EB5A95]">General NPS</p>
+							<h2 className="text-xl font-semibold text-[#EB5A95]">Overall split</h2>
+							<p className="text-xs text-neutral-600">Promoters, passives, and detractors for the window.</p>
 						</div>
 						<div className="relative">
 							<select
 								value={statsTimeframe}
 								onChange={(e) => setStatsTimeframe(e.target.value as StatsTimeframeOption)}
-								className="h-10 appearance-none rounded-full border border-neutral-200 bg-white/90 px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm ring-1 ring-transparent transition hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
+								className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
 							>
 								<option value="1d">Last day</option>
 								<option value="7d">Last week</option>
 								<option value="30d">Last month</option>
 								<option value="90d">Last 90 days</option>
 							</select>
-							<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">▾</span>
+							<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#EB5A95]">▾</span>
 						</div>
 					</div>
 					<div className="mt-4 grid grid-cols-3 gap-3 text-center">
@@ -442,30 +443,31 @@ export default function AdminHomePage() {
 					</div>
 				</div>
 
-				<div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+				<div className="rounded-2xl border border-pink-100 bg-gradient-to-br from-white to-[#EB5A95]/10 p-5 shadow-sm">
 					<div className="flex items-start justify-between">
 						<div>
-							<h2 className="text-sm font-semibold text-neutral-800">AI insights</h2>
-							<p className="text-xs text-neutral-500">Patterns, issues, and highlights for the selected window.</p>
+							<p className="text-[11px] uppercase tracking-[0.14em] text-[#EB5A95]">AI insights</p>
+							<h2 className="text-xl font-semibold text-[#EB5A95]">Patterns & highlights</h2>
+							<p className="text-xs text-neutral-600">Summaries for the selected window.</p>
 						</div>
 						<div className="flex items-center gap-2">
-							<select className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 shadow-sm">
+							<select className="rounded-full border border-[#EB5A95]/30 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40">
 								<option>Last 7 days</option>
 								<option>Last 30 days</option>
 								<option>Last 90 days</option>
 								<option>Custom</option>
 							</select>
-							<button className="rounded-full bg-pink-500 px-3 py-1 text-xs font-semibold text-white shadow hover:bg-pink-600">Refresh</button>
+							<button className="rounded-full bg-[#EB5A95] px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-[#d44c82]">Refresh</button>
 						</div>
 					</div>
 					<div className="mt-3 space-y-2 text-sm text-neutral-800">
-						<div className="rounded-lg border border-neutral-100 bg-pink-50/60 px-3 py-2">
-							<p className="font-semibold text-pink-700">Food temperature remains the top detractor driver in Brickell.</p>
+						<div className="rounded-lg border border-pink-100 bg-[#EB5A95]/10 px-3 py-2">
+							<p className="font-semibold text-[#EB5A95]">Food temperature remains the top detractor driver in Brickell.</p>
 						</div>
-						<div className="rounded-lg border border-neutral-100 bg-amber-50/60 px-3 py-2">
+						<div className="rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2">
 							<p className="font-semibold text-amber-700">Wait times improved week-over-week; keep staffing steady Fri/Sat.</p>
 						</div>
-						<div className="rounded-lg border border-neutral-100 bg-emerald-50/60 px-3 py-2">
+						<div className="rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2">
 							<p className="font-semibold text-emerald-700">Promoters mention service friendliness in 45% of positive reviews.</p>
 						</div>
 					</div>

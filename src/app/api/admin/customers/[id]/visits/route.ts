@@ -22,6 +22,7 @@ export async function GET(_: Request, context: { params: { id: string } | Promis
 				details: (error as any)?.message || null,
 				code: (error as any)?.code || null,
 				hint: (error as any)?.hint || null,
+				stack: (error as any)?.stack || null,
 			},
 			{ status: 500 },
 		);

@@ -134,10 +134,20 @@ export default function AdminCustomersPage() {
           fetch(`/api/admin/customers/${selectedCustomerId}`),
           fetch(`/api/admin/customers/${selectedCustomerId}/visits`),
         ]);
+
         const customerJson = await customerRes.json();
         if (!customerRes.ok) throw new Error(customerJson?.error || "Failed to load customer");
-        const visitsJson = await visitsRes.json();
+
+        let visitsJson: any = null;
+        try {
+          visitsJson = await visitsRes.json();
+        } catch (parseErr) {
+          const text = await visitsRes.text();
+          console.error("visits fetch parse error", { status: visitsRes.status, body: text.slice(0, 400) });
+          throw new Error(`Failed to load visits (${visitsRes.status})`);
+        }
         if (!visitsRes.ok) throw new Error(visitsJson?.error || "Failed to load visits");
+
         setSelectedCustomer(customerJson as Customer);
         setVisits(Array.isArray(visitsJson?.visits) ? visitsJson.visits : []);
       } catch (err: any) {
