@@ -154,6 +154,7 @@ export default function AdminHomePage() {
 	const [insights, setInsights] = useState<any>(null);
 	const [loadingInsights, setLoadingInsights] = useState(false);
 	const [insightsError, setInsightsError] = useState<string | null>(null);
+	const [insightsButtonClicked, setInsightsButtonClicked] = useState(false);
 	const [calendarOpen, setCalendarOpen] = useState(false);
 	const [monthCursor, setMonthCursor] = useState(() => new Date());
 	const [hoverDay, setHoverDay] = useState<Date | null>(null);
@@ -176,30 +177,37 @@ export default function AdminHomePage() {
 
 	const statsRange = useMemo(() => computeStatsRange(statsTimeframe), [statsTimeframe]);
 	const insightsRange = useMemo(() => computeInsightsRange(insightsTimeframe), [insightsTimeframe]);
+	const showInsightsTrigger = !insights && !insightsButtonClicked;
+
+	const loadInsights = useCallback(async () => {
+		try {
+			setLoadingInsights(true);
+			setInsightsError(null);
+			const params = new URLSearchParams();
+			if (insightsRange.from) params.set("from", insightsRange.from);
+			if (insightsRange.to) params.set("to", insightsRange.to);
+			if (insightsLocation !== "all") params.set("location", insightsLocation);
+			const res = await fetch(`/api/admin/insights?${params.toString()}`, { cache: "no-store" });
+			const json = await res.json();
+			if (!res.ok) throw new Error(json?.error || "Failed to load insights");
+			setInsights(json?.insights || null);
+		} catch (err: any) {
+			console.error(err);
+			setInsightsError(err?.message || "Failed to load insights");
+			setInsights(null);
+		} finally {
+			setLoadingInsights(false);
+		}
+	}, [insightsRange.from, insightsRange.to, insightsLocation]);
+
+	const handleManualInsights = useCallback(() => {
+		setInsightsButtonClicked(true);
+	}, []);
 
 	useEffect(() => {
-		async function loadInsights() {
-			try {
-				setLoadingInsights(true);
-				setInsightsError(null);
-				const params = new URLSearchParams();
-				if (insightsRange.from) params.set("from", insightsRange.from);
-				if (insightsRange.to) params.set("to", insightsRange.to);
-				if (insightsLocation !== "all") params.set("location", insightsLocation);
-				const res = await fetch(`/api/admin/insights?${params.toString()}`, { cache: "no-store" });
-				const json = await res.json();
-				if (!res.ok) throw new Error(json?.error || "Failed to load insights");
-				setInsights(json?.insights || null);
-			} catch (err: any) {
-				console.error(err);
-				setInsightsError(err?.message || "Failed to load insights");
-				setInsights(null);
-			} finally {
-				setLoadingInsights(false);
-			}
-		}
+		if (!insightsButtonClicked) return;
 		loadInsights();
-	}, [insightsRange.from, insightsRange.to, insightsLocation]);
+	}, [loadInsights, insightsButtonClicked]);
 
 	const today = useMemo(() => {
 		const d = new Date();
@@ -512,6 +520,17 @@ export default function AdminHomePage() {
 							<span className="pointer-events-none -ml-6 text-[#EB5A95]">▾</span>
 						</div>
 					</div>
+					{showInsightsTrigger && (
+						<div className="mt-4 flex w-full justify-center">
+							<button
+								onClick={handleManualInsights}
+								disabled={loadingInsights}
+								className="inline-flex h-10 items-center rounded-full bg-[#EB5A95] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#d94483] disabled:opacity-60"
+							>
+								{loadingInsights ? "Loading…" : "Trigger AI insights"}
+							</button>
+						</div>
+					)}
 					<div className="mt-3 space-y-3 text-sm text-neutral-800 max-h-[380px] overflow-y-auto pr-1">
 						{insightsError && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">{insightsError}</div>}
 						{!insightsError && insights && (
@@ -546,9 +565,6 @@ export default function AdminHomePage() {
 									</div>
 								</div>
 							</>
-						)}
-						{!insightsError && !loadingInsights && !insights && (
-							<div className="rounded-lg border border-neutral-100 bg-white px-3 py-2 text-neutral-700">No insights yet.</div>
 						)}
 					</div>
 					{loadingInsights && (
