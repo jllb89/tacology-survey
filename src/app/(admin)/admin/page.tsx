@@ -34,6 +34,7 @@ type TimeframeOption = "" | "1d" | "7d" | "30d" | "90d" | "custom";
 type LocationFilter = "all" | "brickell" | "wynwood";
 
 type StatsTimeframeOption = "1d" | "7d" | "30d" | "90d";
+type InsightsTimeframeOption = "7d" | "30d" | "90d";
 
 type StatsResponse = {
 	byLocation: Record<string, number>;
@@ -70,6 +71,14 @@ function computeRange(timeframe: TimeframeOption, customFrom: string, customTo: 
 function computeStatsRange(timeframe: StatsTimeframeOption) {
 	const now = new Date();
 	const days = timeframe === "1d" ? 1 : timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90;
+	const fromDate = new Date(now);
+	fromDate.setDate(now.getDate() - (days - 1));
+	return { from: fromDate.toISOString(), to: now.toISOString() };
+}
+
+function computeInsightsRange(timeframe: InsightsTimeframeOption) {
+	const now = new Date();
+	const days = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90;
 	const fromDate = new Date(now);
 	fromDate.setDate(now.getDate() - (days - 1));
 	return { from: fromDate.toISOString(), to: now.toISOString() };
@@ -130,7 +139,9 @@ export default function AdminHomePage() {
 	const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
 	const [timeframe, setTimeframe] = useState<TimeframeOption>("7d");
 	const [statsTimeframe, setStatsTimeframe] = useState<StatsTimeframeOption>("7d");
+	const [insightsTimeframe, setInsightsTimeframe] = useState<InsightsTimeframeOption>("30d");
 	const [location, setLocation] = useState<LocationFilter>("all");
+	const [insightsLocation, setInsightsLocation] = useState<LocationFilter>("all");
 	const [customFrom, setCustomFrom] = useState("");
 	const [customTo, setCustomTo] = useState("");
 	const [answers, setAnswers] = useState<AnswerApiRow[]>([]);
@@ -140,6 +151,9 @@ export default function AdminHomePage() {
 	const [loadingStats, setLoadingStats] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [statsError, setStatsError] = useState<string | null>(null);
+	const [insights, setInsights] = useState<any>(null);
+	const [loadingInsights, setLoadingInsights] = useState(false);
+	const [insightsError, setInsightsError] = useState<string | null>(null);
 	const [calendarOpen, setCalendarOpen] = useState(false);
 	const [monthCursor, setMonthCursor] = useState(() => new Date());
 	const [hoverDay, setHoverDay] = useState<Date | null>(null);
@@ -161,6 +175,31 @@ export default function AdminHomePage() {
 	);
 
 	const statsRange = useMemo(() => computeStatsRange(statsTimeframe), [statsTimeframe]);
+	const insightsRange = useMemo(() => computeInsightsRange(insightsTimeframe), [insightsTimeframe]);
+
+	useEffect(() => {
+		async function loadInsights() {
+			try {
+				setLoadingInsights(true);
+				setInsightsError(null);
+				const params = new URLSearchParams();
+				if (insightsRange.from) params.set("from", insightsRange.from);
+				if (insightsRange.to) params.set("to", insightsRange.to);
+				if (insightsLocation !== "all") params.set("location", insightsLocation);
+				const res = await fetch(`/api/admin/insights?${params.toString()}`, { cache: "no-store" });
+				const json = await res.json();
+				if (!res.ok) throw new Error(json?.error || "Failed to load insights");
+				setInsights(json?.insights || null);
+			} catch (err: any) {
+				console.error(err);
+				setInsightsError(err?.message || "Failed to load insights");
+				setInsights(null);
+			} finally {
+				setLoadingInsights(false);
+			}
+		}
+		loadInsights();
+	}, [insightsRange.from, insightsRange.to, insightsLocation]);
 
 	const today = useMemo(() => {
 		const d = new Date();
@@ -443,34 +482,79 @@ export default function AdminHomePage() {
 					</div>
 				</div>
 
-				<div className="rounded-2xl border border-pink-100 bg-gradient-to-br from-white to-[#EB5A95]/10 p-5 shadow-sm">
-					<div className="flex items-start justify-between">
+				<div className="relative rounded-2xl border border-pink-100 bg-gradient-to-br from-white to-[#EB5A95]/10 p-5 shadow-sm">
+					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<p className="text-[11px] uppercase tracking-[0.14em] text-[#EB5A95]">AI insights</p>
 							<h2 className="text-xl font-semibold text-[#EB5A95]">Patterns & highlights</h2>
 							<p className="text-xs text-neutral-600">Summaries for the selected window.</p>
 						</div>
-						<div className="flex items-center gap-2">
-							<select className="rounded-full border border-[#EB5A95]/30 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40">
-								<option>Last 7 days</option>
-								<option>Last 30 days</option>
-								<option>Last 90 days</option>
-								<option>Custom</option>
+						<div className="flex flex-wrap items-center gap-2 text-xs">
+							<select
+								value={insightsTimeframe}
+								onChange={(e) => setInsightsTimeframe(e.target.value as InsightsTimeframeOption)}
+								className="h-9 rounded-full border border-[#EB5A95]/40 bg-white px-3 pr-7 font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
+							>
+								<option value="7d">Last week</option>
+								<option value="30d">Last month</option>
+								<option value="90d">Last 90 days</option>
 							</select>
-							<button className="rounded-full bg-[#EB5A95] px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-[#d44c82]">Refresh</button>
+							<select
+								value={insightsLocation}
+								onChange={(e) => setInsightsLocation(e.target.value as LocationFilter)}
+								className="h-9 rounded-full border border-[#EB5A95]/40 bg-white px-3 pr-7 font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
+							>
+								<option value="all">All locations</option>
+								<option value="brickell">Brickell</option>
+								<option value="wynwood">Wynwood</option>
+							</select>
 						</div>
 					</div>
-					<div className="mt-3 space-y-2 text-sm text-neutral-800">
-						<div className="rounded-lg border border-pink-100 bg-[#EB5A95]/10 px-3 py-2">
-							<p className="font-semibold text-[#EB5A95]">Food temperature remains the top detractor driver in Brickell.</p>
-						</div>
-						<div className="rounded-lg border border-amber-100 bg-amber-50/70 px-3 py-2">
-							<p className="font-semibold text-amber-700">Wait times improved week-over-week; keep staffing steady Fri/Sat.</p>
-						</div>
-						<div className="rounded-lg border border-emerald-100 bg-emerald-50/70 px-3 py-2">
-							<p className="font-semibold text-emerald-700">Promoters mention service friendliness in 45% of positive reviews.</p>
-						</div>
+					<div className="mt-3 space-y-3 text-sm text-neutral-800">
+						{insightsError && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">{insightsError}</div>}
+						{!insightsError && insights && (
+							<>
+								{insights?.patterns?.manager_summary?.short_summary && (
+									<div className="rounded-lg border border-pink-100 bg-[#EB5A95]/10 px-3 py-2 text-[#EB5A95]">
+										{insights.patterns.manager_summary.short_summary}
+									</div>
+								)}
+								<div className="space-y-3">
+									<p className="text-xs uppercase tracking-[0.12em] text-neutral-500">Themes & actions</p>
+									<div className="grid gap-3">
+										{(insights?.patterns?.top_themes ?? []).slice(0, 5).map((t: any, idx: number) => {
+											const action = (insights?.patterns?.recommended_actions ?? [])[idx] || null;
+											return (
+												<div
+													key={t.theme}
+													className="rounded-xl border border-[#EB5A95]/30 bg-[#fff5fa] px-4 py-3 shadow-sm"
+												>
+													<div className="flex items-center justify-between gap-2">
+														<p className="font-semibold text-[#EB5A95]">{t.theme}</p>
+														<p className="text-[11px] text-neutral-500">{t.count} mentions</p>
+													</div>
+													<div className="mt-2 rounded-lg border border-[#EB5A95]/40 bg-white/90 px-3 py-2 space-y-1">
+														<p className="text-sm font-semibold text-neutral-900">{action?.action || "(No action returned by AI)"}</p>
+														{action?.why && <p className="text-xs text-neutral-600">Why: {action.why}</p>}
+														{action?.expected_impact && <p className="text-xs text-neutral-600">Impact: {action.expected_impact}</p>}
+														{action?.owner && <p className="text-[11px] text-neutral-500">Owner: {action.owner}</p>}
+													</div>
+												</div>
+											);
+										})}
+									</div>
+								</div>
+							</>
+						)}
+						{!insightsError && !loadingInsights && !insights && (
+							<div className="rounded-lg border border-neutral-100 bg-white px-3 py-2 text-neutral-700">No insights yet.</div>
+						)}
 					</div>
+					{loadingInsights && (
+						<div className="absolute inset-0 rounded-2xl bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+							<div className="h-10 w-10 animate-spin rounded-full border-2 border-[#EB5A95]/30 border-t-[#EB5A95]"></div>
+						</div>
+					)}
 				</div>
 			</section>
 
