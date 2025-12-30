@@ -65,7 +65,7 @@ B) mode="period_analysis" (array of responses + window)
    - Identify “staff pattern clues” ONLY if explicitly mentioned in text (names/roles/descriptions)
 3) Provide findings:
   - 3–7 key insights with evidence counts (cap 7)
-  - Recommended actions: for every item in top_themes, emit a corresponding action (same order). Total actions = total themes (up to 7). Each action must be specific and operationally detailed (what to do, where, and when), include a measurable target or expected change, and name the accountable owner (kitchen/service/manager/bar/host/unknown). Avoid generic guidance.
+  - Recommended actions: for every item in top_themes, emit a corresponding action (same order). Total actions = total themes (up to 7). Each action must be specific and operationally detailed (what to do, where, and when) and name the accountable owner (kitchen/service/manager/bar/host/unknown). Avoid generic guidance. Keep outputs concise; omit separate "why" and "impact" fields.
 4) Generate a manager summary:
    - short_summary (<= 6 lines)
    - “watchlist” items: what to monitor next period

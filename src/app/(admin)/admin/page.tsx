@@ -137,8 +137,8 @@ function buildDistribution(question: Question | null, answers: AnswerApiRow[]): 
 export default function AdminHomePage() {
 	const [questions, setQuestions] = useState<Question[]>([]);
 	const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
-	const [timeframe, setTimeframe] = useState<TimeframeOption>("7d");
-	const [statsTimeframe, setStatsTimeframe] = useState<StatsTimeframeOption>("7d");
+	const [timeframe, setTimeframe] = useState<TimeframeOption>("30d");
+	const [statsTimeframe, setStatsTimeframe] = useState<StatsTimeframeOption>("30d");
 	const [insightsTimeframe, setInsightsTimeframe] = useState<InsightsTimeframeOption>("30d");
 	const [location, setLocation] = useState<LocationFilter>("all");
 	const [insightsLocation, setInsightsLocation] = useState<LocationFilter>("all");
@@ -420,7 +420,7 @@ export default function AdminHomePage() {
 							<select
 								value={statsTimeframe}
 								onChange={(e) => setStatsTimeframe(e.target.value as StatsTimeframeOption)}
-								className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
+								className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
 							>
 								<option value="1d">Last day</option>
 								<option value="7d">Last week</option>
@@ -489,28 +489,30 @@ export default function AdminHomePage() {
 							<h2 className="text-xl font-semibold text-[#EB5A95]">Patterns & highlights</h2>
 							<p className="text-xs text-neutral-600">Summaries for the selected window.</p>
 						</div>
-						<div className="flex flex-wrap items-center gap-2 text-xs">
+						<div className="flex flex-nowrap items-center gap-2 text-xs whitespace-nowrap">
 							<select
 								value={insightsTimeframe}
 								onChange={(e) => setInsightsTimeframe(e.target.value as InsightsTimeframeOption)}
-								className="h-9 rounded-full border border-[#EB5A95]/40 bg-white px-3 pr-7 font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
+								className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
 							>
 								<option value="7d">Last week</option>
 								<option value="30d">Last month</option>
 								<option value="90d">Last 90 days</option>
 							</select>
+							<span className="pointer-events-none -ml-6 text-[#EB5A95]">▾</span>
 							<select
 								value={insightsLocation}
 								onChange={(e) => setInsightsLocation(e.target.value as LocationFilter)}
-								className="h-9 rounded-full border border-[#EB5A95]/40 bg-white px-3 pr-7 font-semibold text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
+								className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
 							>
 								<option value="all">All locations</option>
 								<option value="brickell">Brickell</option>
 								<option value="wynwood">Wynwood</option>
 							</select>
+							<span className="pointer-events-none -ml-6 text-[#EB5A95]">▾</span>
 						</div>
 					</div>
-					<div className="mt-3 space-y-3 text-sm text-neutral-800">
+					<div className="mt-3 space-y-3 text-sm text-neutral-800 max-h-[380px] overflow-y-auto pr-1">
 						{insightsError && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">{insightsError}</div>}
 						{!insightsError && insights && (
 							<>
@@ -520,24 +522,23 @@ export default function AdminHomePage() {
 									</div>
 								)}
 								<div className="space-y-3">
-									<p className="text-xs uppercase tracking-[0.12em] text-neutral-500">Themes & actions</p>
-									<div className="grid gap-3">
+									<p className="text-sm font-semibold text-neutral-700">Themes & actions</p>
+									<div className="space-y-3 divide-y divide-neutral-200">
 										{(insights?.patterns?.top_themes ?? []).slice(0, 5).map((t: any, idx: number) => {
 											const action = (insights?.patterns?.recommended_actions ?? [])[idx] || null;
 											return (
-												<div
-													key={t.theme}
-													className="rounded-xl border border-[#EB5A95]/30 bg-[#fff5fa] px-4 py-3 shadow-sm"
-												>
-													<div className="flex items-center justify-between gap-2">
-														<p className="font-semibold text-[#EB5A95]">{t.theme}</p>
-														<p className="text-[11px] text-neutral-500">{t.count} mentions</p>
+												<div key={t.theme} className="space-y-1 py-3 first:pt-0 last:pb-0">
+													<div className="flex items-center gap-2 text-xs font-semibold text-[#EB5A95]">
+														<span className="rounded-full bg-[#EB5A95]/10 px-2 py-[2px] text-[11px] font-regular text-[#EB5A95]">Theme</span>
+														<span className="text-sm font-regular text-neutral-900">{t.theme}</span>
+														<span className="text-[11px] text-neutral-500">{t.count} mentions</span>
 													</div>
-													<div className="mt-2 rounded-lg border border-[#EB5A95]/40 bg-white/90 px-3 py-2 space-y-1">
-														<p className="text-sm font-semibold text-neutral-900">{action?.action || "(No action returned by AI)"}</p>
-														{action?.why && <p className="text-xs text-neutral-600">Why: {action.why}</p>}
-														{action?.expected_impact && <p className="text-xs text-neutral-600">Impact: {action.expected_impact}</p>}
-														{action?.owner && <p className="text-[11px] text-neutral-500">Owner: {action.owner}</p>}
+													<div className="flex items-start gap-2 text-neutral-800">
+														<span className="rounded-full bg-emerald-50 px-2 py-[2px] text-[11px] font-regular text-emerald-700">Action</span>
+														<div className="space-y-1 text-xs">
+															<p className="font-regular text-neutral-600 text-sm">{action?.action || "(No action returned by AI)"}</p>
+															{action?.owner && <p className="text-[11px] text-neutral-500">Owner: {action.owner}</p>}
+														</div>
 													</div>
 												</div>
 											);
