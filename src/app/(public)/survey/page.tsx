@@ -43,6 +43,8 @@ export default function SurveyPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [bgReady, setBgReady] = useState(false);
+  const loveCorner = useMemo(() => (Math.random() < 0.5 ? "bottom-left" : "bottom-right"), []);
+  const [mounted, setMounted] = useState(false);
 
   // Load questions first; nothing renders until ready
   useEffect(() => {
@@ -74,6 +76,10 @@ export default function SurveyPage() {
     img.onerror = () => setBgReady(false);
   }, []);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const totalSteps = useMemo(() => questions.length + 2, [questions.length]);
 
   const currentQuestion = useMemo(() => {
@@ -86,6 +92,8 @@ export default function SurveyPage() {
     const idx = Math.min(step + 1, totalSteps);
     return Math.round((idx / totalSteps) * 100);
   }, [step, totalSteps]);
+
+  const displayProgress = submitted ? 100 : progressPercent;
 
   const isLoading = loadingQuestions;
 
@@ -112,6 +120,28 @@ export default function SurveyPage() {
       .survey-logo-pulse {
         animation: surveyPulse 1.4s ease-in-out infinite;
         transform-origin: center;
+      }
+
+      @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      .animate-fade-up {
+        animation: fadeInUp 1100ms ease forwards;
+      }
+
+      .animate-fade-in {
+        animation: fadeIn 900ms ease forwards;
+      }
+
+      .animate-fade-switch {
+        animation: fadeIn 1200ms ease forwards;
       }
     `}</style>
   );
@@ -274,24 +304,6 @@ export default function SurveyPage() {
     );
   }
 
-  if (submitted) {
-    return (
-      <>
-        {globalStyles}
-        <main className="min-h-screen survey-font" style={backgroundStyle}>
-          <div className="mx-auto max-w-3xl px-4 py-12">
-            <div className="rounded-3xl bg-white shadow-lg border border-white/60 p-8">
-              <p className="text-xs uppercase tracking-[0.14em] text-pink-600 mb-2">Thank you</p>
-              <h1 className="text-2xl font-semibold text-neutral-900 mb-3">We’ve got your feedback</h1>
-              <p className="text-neutral-600 text-sm mb-6">Your responses help Tacology improve. Enjoy 10% off on your next visit.</p>
-              <div className="inline-flex items-center gap-2 rounded-full bg-pink-50 px-4 py-2 text-pink-700 text-sm font-semibold">10% OFF coupon is on its way</div>
-            </div>
-          </div>
-        </main>
-      </>
-    );
-  }
-
   return (
     <>
       {globalStyles}
@@ -302,10 +314,81 @@ export default function SurveyPage() {
         <div className="flex-1 flex justify-center px-4 pb-24">
           <div className="w-full max-w-4xl space-y-6 flex flex-col justify-center">
             <div className="text-center space-y-5">
-              <h1 className="text-4xl font-semibold text-neutral-900">Thank you for visiting us today! <br /> Help us improve and get 10% off!</h1>
+              <h1 className={`text-3xl sm:text-4xl font-semibold leading-tight text-neutral-900 ${mounted ? "animate-fade-up" : ""}`}>Thank you for visiting us today! <br /> Help us improve and get 10% off!</h1>
             </div>
-            <div className="bg-white shadow-lg border border-white/60 p-6 md:p-8 min-h-[440px] flex flex-col justify-center mt-6">
-              {step === 0 && (
+            <div className={`bg-white shadow-lg border border-white/60 p-6 md:p-8 min-h-[440px] flex flex-col justify-center mt-6 relative overflow-visible ${mounted ? "animate-fade-in" : ""}`}>
+              <Image
+                src="/taco-tape.png"
+                alt=""
+                aria-hidden
+                width={200}
+                height={200}
+                className="pointer-events-none select-none absolute -top-8 -left-6 w-24 h-24 sm:-top-10 sm:-left-8 sm:w-28 sm:h-28 md:-top-12 md:-left-10 md:w-40 md:h-40 z-20"
+                priority
+              />
+              <Image
+                src="/taco-tape2.png"
+                alt=""
+                aria-hidden
+                width={200}
+                height={200}
+                className="pointer-events-none select-none absolute -top-8 -right-6 w-24 h-24 sm:-top-10 sm:-right-8 sm:w-28 sm:h-28 md:-top-12 md:-right-10 md:w-40 md:h-40 z-20"
+                priority
+              />
+              {loveCorner === "bottom-left" ? (
+                <Image
+                  src="/taco-love.svg"
+                  alt=""
+                  aria-hidden
+                  width={280}
+                  height={280}
+                  className="pointer-events-none select-none absolute -bottom-12 -left-8 w-40 h-40 sm:-bottom-14 sm:-left-10 sm:w-48 sm:h-48 md:-bottom-32 md:-left-21 md:w-56 md:h-56 z-20"
+                  priority
+                />
+              ) : (
+                <Image
+                  src="/taco-tape2.png"
+                  alt=""
+                  aria-hidden
+                  width={200}
+                  height={200}
+                  className="pointer-events-none select-none absolute -bottom-10 -left-8 w-28 h-28 sm:-bottom-12 sm:-left-10 sm:w-32 sm:h-32 md:-bottom-14 md:-left-12 md:w-40 md:h-40 rotate-180 z-20"
+                  priority
+                />
+              )}
+              {loveCorner === "bottom-right" ? (
+                <Image
+                  src="/taco-love.svg"
+                  alt=""
+                  aria-hidden
+                  width={280}
+                  height={280}
+                  className="pointer-events-none select-none absolute -bottom-12 -right-8 w-40 h-40 sm:-bottom-14 sm:-right-10 sm:w-48 sm:h-48 md:-bottom-32 md:-right-20 md:w-56 md:h-56 z-20"
+                  priority
+                />
+              ) : (
+                <Image
+                  src="/taco-tape.png"
+                  alt=""
+                  aria-hidden
+                  width={200}
+                  height={200}
+                  className="pointer-events-none select-none absolute -bottom-10 -right-8 w-28 h-28 sm:-bottom-12 sm:-right-10 sm:w-32 sm:h-32 md:-bottom-14 md:-right-12 md:w-40 md:h-40 rotate-180 z-20"
+                  priority
+                />
+              )}
+              <div key={submitted ? "submitted" : `step-${step}`} className="animate-fade-switch">
+              {submitted && (
+                <div className="space-y-5 flex flex-col justify-center flex-1">
+                  <p className="text-xs uppercase tracking-[0.14em] text-pink-600 text-center">Thank you</p>
+                  <h2 className="text-2xl font-semibold text-neutral-900 text-center">We’ve got your feedback</h2>
+                  <p className="text-neutral-600 text-sm text-center">Your responses help Tacology improve. Enjoy 10% off on your next visit.</p>
+                  <div className="flex justify-center">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-pink-50 px-4 py-2 text-pink-700 text-sm font-semibold">10% OFF coupon is on its way</div>
+                  </div>
+                </div>
+              )}
+              {!submitted && step === 0 && (
                 <div className="space-y-5 flex flex-col justify-center flex-1">
                   <div className="text-xl text-[#EB5A95] text-center">Please share your visit details to start.</div>
                   <div className="grid gap-6 md:grid-cols-2 mt-6">
@@ -374,10 +457,10 @@ export default function SurveyPage() {
                 </div>
               )}
 
-              {step >= 1 && step <= questions.length && currentQuestion && (
+              {!submitted && step >= 1 && step <= questions.length && currentQuestion && (
                 <div className="space-y-4">
                   <p className="text-xs uppercase tracking-[0.14em] text-pink-600">Question {step} of {questions.length}</p>
-                  <h2 className="text-xl font-semibold text-neutral-900">{currentQuestion.prompt}</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold text-neutral-900">{currentQuestion.prompt}</h2>
 
                   {currentQuestion.question_type === "single_choice" && (
                     <div className="flex flex-wrap gap-3">
@@ -432,7 +515,7 @@ export default function SurveyPage() {
                   {currentQuestion.question_type === "free_text" && (
                     <div className="space-y-2">
                       <textarea
-                        className="w-full rounded-xl border border-neutral-200 px-3 py-3 text-sm shadow-sm focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+                        className="w-full rounded-xl border border-neutral-200 px-3 py-3 text-sm shadow-sm focus:border-[#EB5A95] focus:ring-2 focus:ring-pink-100 focus:outline-none focus:ring-offset-0 resize-none"
                         rows={5}
                         placeholder="Type your answer"
                         value={answers[currentQuestion.id]?.value_text || ""}
@@ -462,12 +545,12 @@ export default function SurveyPage() {
                 </div>
               )}
 
-              {atFinalStep && (
+              {!submitted && atFinalStep && (
                 <div className="space-y-4">
                   <p className="text-xs uppercase tracking-[0.14em] text-pink-600">Last step</p>
                   <h2 className="text-xl font-semibold text-neutral-900">Anything else we should improve?</h2>
                   <textarea
-                    className="w-full rounded-xl border border-neutral-200 px-3 py-3 text-sm shadow-sm focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+                    className="w-full rounded-xl border border-neutral-200 px-3 py-3 text-sm shadow-sm focus:border-[#EB5A95] focus:ring-2 focus:ring-pink-100 focus:outline-none focus:ring-offset-0 resize-none"
                     rows={5}
                     placeholder="Share details to help us improve"
                     value={improvementText}
@@ -493,6 +576,7 @@ export default function SurveyPage() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
@@ -500,9 +584,9 @@ export default function SurveyPage() {
         <div className="fixed bottom-0 left-0 right-0 px-4 pb-6">
           <div className="mx-auto max-w-4xl flex items-center gap-3">
             <div className="h-2 flex-1 rounded-full bg-black/20 overflow-hidden">
-              <div className="h-full bg-black/80" style={{ width: `${progressPercent}%` }} />
+              <div className="h-full bg-black/80 transition-[width] duration-800 ease-out" style={{ width: `${displayProgress}%` }} />
             </div>
-            <span className="text-xs font-semibold text-neutral-900 w-14 text-right drop-shadow-sm">{progressPercent}%</span>
+            <span className="text-xs font-semibold text-neutral-900 w-14 text-right drop-shadow-sm">{displayProgress}%</span>
           </div>
         </div>
       </main>
