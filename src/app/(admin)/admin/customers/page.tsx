@@ -11,10 +11,24 @@ type Customer = {
   updated_at: string;
 };
 
+type VisitAnswer = {
+  id: string;
+  value_text: string | null;
+  value_number: number | null;
+  question: {
+    id: string;
+    code: string;
+    prompt: string;
+    question_type: string;
+    options: any;
+  };
+};
+
 type Visit = {
   id: string;
   location: "brickell" | "wynwood";
   created_at: string;
+  answers: VisitAnswer[];
 };
 
 type TimeframeOption = "7d" | "30d" | "90d" | "365d";
@@ -44,6 +58,7 @@ export default function AdminCustomersPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visitLocationFilter, setVisitLocationFilter] = useState<"all" | "brickell" | "wynwood">("all");
@@ -106,6 +121,7 @@ export default function AdminCustomersPage() {
     setSelectedCustomerId(null);
     setSelectedCustomer(null);
     setVisits([]);
+    setExpandedVisitId(null);
   }, [visitTimeframe, visitLocationFilter]);
 
   useEffect(() => {
@@ -269,28 +285,59 @@ export default function AdminCustomersPage() {
             {!loadingDetail && selectedCustomer && (
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.14em] text-[#EB5A95]">Customer</p>
-                  <h3 className="text-2xl font-semibold text-[#EB5A95]">{selectedCustomer.name || selectedCustomer.email}</h3>
-                  <p className="text-sm text-neutral-700">{selectedCustomer.email}</p>
-                  <p className="text-sm text-neutral-700">{selectedCustomer.phone || "No phone"}</p>
+                  <h3 className="text-2xl font-semibold text-[#EB5A95] mb-2">{selectedCustomer.name || selectedCustomer.email}</h3>
+                  <p className="text-xs text-[#EB5A95] underline mb-1">
+                    <a href={`mailto:${selectedCustomer.email}`}>{selectedCustomer.email}</a>
+                  </p>
+                  <p className="text-xs text-neutral-700 underline">
+                    <a href={`tel:${selectedCustomer.phone || ""}`}>{selectedCustomer.phone || "No phone"}</a>
+                  </p>
                 </div>
-                <div>
+                <div className="mt-4">
                   <p className="text-xs uppercase tracking-[0.14em] text-[#EB5A95]">Visits</p>
                   <div className="mt-3 space-y-2">
                     {filteredVisits.length === 0 && <div className="text-sm text-neutral-600">No visits yet.</div>}
-                    {filteredVisits.map((visit) => (
-                      <div
-                        key={visit.id}
-                        className="flex items-center justify-between rounded-xl bg-white px-4 py-2 text-sm"
-                      >
-                        <span className="inline-flex items-center gap-2 font-semibold text-[#EB5A95]">
-                          <span className="inline-flex items-center rounded-full bg-[#EB5A95]/15 px-2 py-0.5 text-[11px] font-semibold text-[#EB5A95]">
-                            {visit.location === "brickell" ? "Brickell" : "Wynwood"}
-                          </span>
-                        </span>
-                        <span className="text-xs font-medium text-neutral-600">{visit.created_at.slice(0, 10)}</span>
-                      </div>
-                    ))}
+                    {filteredVisits.map((visit, idx) => {
+                      const open = expandedVisitId === visit.id;
+                      return (
+                        <div
+                          key={visit.id}
+                          className={`bg-white ${idx < filteredVisits.length - 1 ? "border-b border-neutral-200" : ""}`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setExpandedVisitId(open ? null : visit.id)}
+                            className="flex w-full items-center justify-between px-4 py-3 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center rounded-full bg-[#EB5A95]/15 px-2 py-0.5 text-[11px] font-semibold text-[#EB5A95]">
+                                {visit.location === "brickell" ? "Brickell" : "Wynwood"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-neutral-500">
+                              <span>{new Date(visit.created_at).toLocaleString()}</span>
+                              <span className={`transform transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+                            </div>
+                          </button>
+                          <div
+                            className="border-t border-neutral-200 px-4 space-y-3 overflow-hidden transition-all duration-200 ease-in-out"
+                            style={{ maxHeight: open ? "600px" : "0px", paddingTop: open ? "12px" : "0px", paddingBottom: open ? "12px" : "0px", opacity: open ? 1 : 0 }}
+                          >
+                            {(!visit.answers || visit.answers.length === 0) && (
+                              <div className="text-sm text-neutral-600">No answers recorded.</div>
+                            )}
+                            {visit.answers?.map((ans) => (
+                              <div key={ans.id} className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
+                                <p className="text-xs font-semibold text-neutral-700">{ans.question.prompt}</p>
+                                <p className="text-sm text-neutral-900 mt-1">
+                                  {ans.value_text ?? ans.value_number ?? "—"}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

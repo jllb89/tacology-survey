@@ -1,16 +1,38 @@
 import { createServiceClient } from "@/lib/supabase/server";
 
+export type VisitAnswer = {
+	id: string;
+	value_text: string | null;
+	value_number: number | null;
+	question: {
+		id: string;
+		code: string;
+		prompt: string;
+		question_type: string;
+		options: any;
+	};
+};
+
 export type Visit = {
 	id: string;
 	location: "brickell" | "wynwood";
 	created_at: string;
+	answers: VisitAnswer[];
 };
 
 export async function listCustomerVisits(customerId: string) {
 	const supabase = createServiceClient();
 	const { data, error } = await supabase
 		.from("survey_responses")
-		.select("id, location, created_at")
+		.select(
+			`id, location, created_at,
+			answers:survey_answers(
+				id,
+				value_text,
+				value_number,
+				question:questions(id, code, prompt, question_type, options)
+			)`,
+		)
 		.eq("customer_id", customerId)
 		.order("created_at", { ascending: false });
 

@@ -8,6 +8,7 @@ export async function GET(_: Request, context: { params: { id: string } | Promis
 	try {
 		const params = await context.params;
 		const { id } = idSchema.parse(params);
+		console.info("admin/customer visits GET", { id });
 		const visits = await listCustomerVisits(id);
 		return NextResponse.json({ visits });
 	} catch (error) {
@@ -15,6 +16,14 @@ export async function GET(_: Request, context: { params: { id: string } | Promis
 			return NextResponse.json({ error: error.flatten() }, { status: 400 });
 		}
 		console.error("admin/customer visits GET error", error);
-		return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+		return NextResponse.json(
+			{
+				error: "Internal server error",
+				details: (error as any)?.message || null,
+				code: (error as any)?.code || null,
+				hint: (error as any)?.hint || null,
+			},
+			{ status: 500 },
+		);
 	}
 }
