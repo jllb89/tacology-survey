@@ -32,7 +32,19 @@ type AnswerApiRow = {
 
 type TimeframeOption = "" | "1d" | "7d" | "30d" | "90d" | "custom";
 type LocationFilter = "all" | "brickell" | "wynwood";
-type RowSelection = Record<string, boolean>;
+
+type StatsTimeframeOption = "1d" | "7d" | "30d" | "90d";
+
+type StatsResponse = {
+	byLocation: Record<string, number>;
+	byDay: Record<string, number>;
+	nps: { promoters: number; passives: number; detractors: number; missing: number };
+	npsScore: number | null;
+	sentiment: { negative: number; neutral: number; positive: number; missing: number };
+	total: number;
+};
+
+type DistributionSlice = { label: string; count: number; color: string };
 
 function formatDateInput(date: Date) {
 	return date.toISOString().slice(0, 10);
@@ -55,42 +67,79 @@ function computeRange(timeframe: TimeframeOption, customFrom: string, customTo: 
 	return { from: fromDate.toISOString(), to: now.toISOString() };
 }
 
-function formatAnswer(row: AnswerApiRow, question: Question | null) {
-	if (!question) {
-		return row.value_text || (row.value_number !== null ? row.value_number.toString() : "");
+function computeStatsRange(timeframe: StatsTimeframeOption) {
+	const now = new Date();
+	const days = timeframe === "1d" ? 1 : timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90;
+	const fromDate = new Date(now);
+	fromDate.setDate(now.getDate() - (days - 1));
+	return { from: fromDate.toISOString(), to: now.toISOString() };
+}
+
+function formatQuestionCode(code?: string | null) {
+	if (!code) return "";
+	return code
+		.replace(/_/g, " ")
+		.toLowerCase()
+		.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function buildDistribution(question: Question | null, answers: AnswerApiRow[]): DistributionSlice[] {
+	if (!question) return [];
+	const palette = [
+		"#ec4899",
+		"#8b5cf6",
+		"#06b6d4",
+		"#22c55e",
+		"#f59e0b",
+		"#ef4444",
+		"#0ea5e9",
+		"#10b981",
+		"#f97316",
+		"#a855f7",
+		"#6366f1",
+	];
+
+	if (question.question_type === "free_text") {
+		const count = answers.filter((a) => (a.value_text || "").trim() !== "").length;
+		return [{ label: "Text responses", count, color: palette[0] }];
 	}
 
 	if (question.question_type === "single_choice") {
 		const labels = question.options?.labels || [];
-		const idx = (row.value_number ?? 0) - 1;
-		return labels[idx] || (row.value_number !== null ? row.value_number.toString() : "");
+		const buckets = labels.map(() => 0);
+		answers.forEach((row) => {
+			const idx = (row.value_number ?? 0) - 1;
+			if (idx >= 0 && idx < buckets.length) buckets[idx] += 1;
+		});
+		return buckets.map((count, idx) => ({ label: labels[idx] || `Option ${idx + 1}`, count, color: palette[idx % palette.length] }));
 	}
 
-	if (question.question_type === "scale_0_10") {
-		return row.value_number !== null ? row.value_number.toString() : "";
-	}
-
-	return row.value_text || "";
+	// scale_0_10
+	const buckets = Array.from({ length: 11 }, () => 0);
+	answers.forEach((row) => {
+		const val = row.value_number;
+		if (val !== null && val >= 0 && val <= 10) {
+			buckets[val] += 1;
+		}
+	});
+	return buckets.map((count, idx) => ({ label: idx.toString(), count, color: palette[idx % palette.length] }));
 }
 
 export default function AdminHomePage() {
 	const [questions, setQuestions] = useState<Question[]>([]);
 	const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
-	const [answers, setAnswers] = useState<AnswerApiRow[]>([]);
-	const [timeframe, setTimeframe] = useState<TimeframeOption>("");
+	const [timeframe, setTimeframe] = useState<TimeframeOption>("7d");
+	const [statsTimeframe, setStatsTimeframe] = useState<StatsTimeframeOption>("7d");
 	const [location, setLocation] = useState<LocationFilter>("all");
 	const [customFrom, setCustomFrom] = useState("");
 	const [customTo, setCustomTo] = useState("");
+	const [answers, setAnswers] = useState<AnswerApiRow[]>([]);
+	const [distribution, setDistribution] = useState<DistributionSlice[]>([]);
 	const [loadingQuestions, setLoadingQuestions] = useState(false);
-	const [loadingAnswers, setLoadingAnswers] = useState(false);
+	const [loadingDist, setLoadingDist] = useState(false);
+	const [loadingStats, setLoadingStats] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [page, setPage] = useState(1);
-	const [pageSize] = useState(25);
-	const [total, setTotal] = useState(0);
-	const [selectedRows, setSelectedRows] = useState<RowSelection>({});
-	const [sortBy, setSortBy] = useState<"answer" | "sentiment" | "date" | null>(null);
-	const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-	const [questionOpen, setQuestionOpen] = useState(false);
+	const [statsError, setStatsError] = useState<string | null>(null);
 	const [calendarOpen, setCalendarOpen] = useState(false);
 	const [monthCursor, setMonthCursor] = useState(() => new Date());
 	const [hoverDay, setHoverDay] = useState<Date | null>(null);
@@ -102,10 +151,37 @@ export default function AdminHomePage() {
 		[questions, selectedQuestionId],
 	);
 
+	const isFreeText = selectedQuestion?.question_type === "free_text";
+	const isScale = selectedQuestion?.question_type === "scale_0_10";
+	const isPie = !!selectedQuestion && !isFreeText && !isScale;
+
 	const range = useMemo(
 		() => computeRange(timeframe, customFrom, customTo),
 		[timeframe, customFrom, customTo],
 	);
+
+	const statsRange = useMemo(() => computeStatsRange(statsTimeframe), [statsTimeframe]);
+
+	const today = useMemo(() => {
+		const d = new Date();
+		d.setHours(0, 0, 0, 0);
+		return d;
+	}, []);
+
+	const monthDays = useMemo(() => {
+		const start = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+		const end = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
+		const startDay = start.getDay();
+		const days: Array<Date | null> = [];
+		for (let i = 0; i < startDay; i += 1) days.push(null);
+		for (let i = 1; i <= end.getDate(); i += 1) days.push(new Date(start.getFullYear(), start.getMonth(), i));
+		return days;
+	}, [monthCursor]);
+
+	const canGoNextMonth = useMemo(() => {
+		const nextMonth = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
+		return nextMonth <= today;
+	}, [monthCursor, today]);
 
 	const loadQuestions = useCallback(async () => {
 		try {
@@ -117,10 +193,10 @@ export default function AdminHomePage() {
 				throw new Error(json?.error || "Failed to load questions");
 			}
 			const list: Question[] = Array.isArray(json?.questions) ? json.questions : [];
-			setQuestions(list);
-			if (!selectedQuestionId && list.length > 0) {
-				const firstActive = list.find((q) => q.is_active !== false) || list[0];
-				setSelectedQuestionId(firstActive.id);
+			const active = list.filter((q) => q.is_active !== false);
+			setQuestions(active);
+			if (!selectedQuestionId && active.length > 0) {
+				setSelectedQuestionId(active[0].id);
 			}
 		} catch (err: any) {
 			console.error(err);
@@ -130,46 +206,91 @@ export default function AdminHomePage() {
 		}
 	}, [selectedQuestionId]);
 
-	const loadAnswers = useCallback(async () => {
+	const loadDistribution = useCallback(async () => {
 		if (!selectedQuestionId) return;
 		try {
-			setLoadingAnswers(true);
+			setLoadingDist(true);
 			setError(null);
-
-			const params = new URLSearchParams({ questionId: selectedQuestionId, page: String(page), pageSize: String(pageSize) });
-			if (location !== "all") {
-				params.set("location", location);
-			}
+			const params = new URLSearchParams({ questionId: selectedQuestionId, limit: "2000" });
+			if (location !== "all") params.set("location", location);
 			if (range.from) params.set("from", range.from);
 			if (range.to) params.set("to", range.to);
-
 			const res = await fetch(`/api/admin/answers?${params.toString()}`, { cache: "no-store" });
 			const json = await res.json();
 			if (!res.ok) {
 				throw new Error(json?.error || "Failed to load answers");
 			}
-			setAnswers(Array.isArray(json?.answers) ? json.answers : []);
-			setTotal(typeof json?.total === "number" ? json.total : 0);
-			setSelectedRows({});
+			const rows: AnswerApiRow[] = Array.isArray(json?.answers) ? json.answers : [];
+			setAnswers(rows);
+			setDistribution(buildDistribution(selectedQuestion, rows));
 		} catch (err: any) {
 			console.error(err);
 			setError(err?.message || "Failed to load answers");
+			setDistribution([]);
 		} finally {
-			setLoadingAnswers(false);
+			setLoadingDist(false);
 		}
-	}, [selectedQuestionId, location, range.from, range.to, page, pageSize]);
+	}, [selectedQuestionId, location, range.from, range.to, selectedQuestion]);
+
+	const [stats, setStats] = useState<StatsResponse | null>(null);
+
+	const npsBase = useMemo(() => {
+		if (!stats) return 0;
+		return stats.nps.promoters + stats.nps.passives + stats.nps.detractors;
+	}, [stats]);
+
+	const pct = (value: number) => {
+		if (!npsBase) return null;
+		return Math.round((value / npsBase) * 100);
+	};
+
+	const npsBarWidth = useMemo(() => {
+		if (!stats || stats.npsScore === null || stats.npsScore === undefined) return "0%";
+		const normalized = (stats.npsScore + 100) / 200;
+		const clamped = Math.min(1, Math.max(0, normalized));
+		return `${Math.round(clamped * 100)}%`;
+	}, [stats]);
+
+	const npsLabel = useMemo(() => {
+		if (!stats || stats.npsScore === null || stats.npsScore === undefined) return "—";
+		const rounded = Math.round(stats.npsScore);
+		return `${rounded > 0 ? "+" : ""}${rounded}`;
+	}, [stats]);
+
+	const loadStats = useCallback(async () => {
+		try {
+			setLoadingStats(true);
+			setStatsError(null);
+			const params = new URLSearchParams();
+			params.set("from", statsRange.from);
+			params.set("to", statsRange.to);
+			if (location !== "all") params.set("location", location);
+			const res = await fetch(`/api/admin/stats?${params.toString()}`, { cache: "no-store" });
+			const json = await res.json();
+			if (!res.ok) {
+				throw new Error(json?.error || "Failed to load stats");
+			}
+			setStats(json as StatsResponse);
+		} catch (err: any) {
+			console.error(err);
+			setStatsError(err?.message || "Failed to load stats");
+			setStats(null);
+		} finally {
+			setLoadingStats(false);
+		}
+	}, [statsRange.from, statsRange.to, location]);
 
 	useEffect(() => {
 		loadQuestions();
 	}, [loadQuestions]);
 
 	useEffect(() => {
-		setPage(1);
-	}, [selectedQuestionId, location, timeframe, customFrom, customTo]);
+		loadDistribution();
+	}, [loadDistribution]);
 
 	useEffect(() => {
-		loadAnswers();
-	}, [loadAnswers]);
+		loadStats();
+	}, [loadStats]);
 
 	useEffect(() => {
 		function handleClickOutside(event: MouseEvent) {
@@ -189,90 +310,63 @@ export default function AdminHomePage() {
 	}, [calendarOpen]);
 
 	useEffect(() => {
-		if (!calendarOpen) {
-			setHoverDay(null);
-		}
+		if (!calendarOpen) setHoverDay(null);
 	}, [calendarOpen]);
 
-	const locationLabel = (loc: string | undefined) => {
-		if (loc === "brickell") return "Brickell";
-		if (loc === "wynwood") return "Wynwood";
-		return "—";
-	};
+	const totalAnswers = useMemo(() => distribution.reduce((sum, slice) => sum + slice.count, 0), [distribution]);
 
-	const handleSort = (column: "answer" | "sentiment" | "date") => {
-		if (sortBy === column) {
-			setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-		} else {
-			setSortBy(column);
-			setSortDir("asc");
-		}
-	};
-
-	const sortedAnswers = useMemo(() => {
-		if (!sortBy) return answers;
-
-		const dir = sortDir === "asc" ? 1 : -1;
-		return [...answers].sort((a, b) => {
-			if (sortBy === "answer") {
-				const aVal = (formatAnswer(a, selectedQuestion) || "").toLowerCase();
-				const bVal = (formatAnswer(b, selectedQuestion) || "").toLowerCase();
-				return aVal.localeCompare(bVal) * dir;
-			}
-
-			if (sortBy === "sentiment") {
-				const aVal = a.response?.sentiment_score;
-				const bVal = b.response?.sentiment_score;
-				const safeA = aVal !== null && aVal !== undefined ? aVal : dir === 1 ? Infinity : -Infinity;
-				const safeB = bVal !== null && bVal !== undefined ? bVal : dir === 1 ? Infinity : -Infinity;
-				return (safeA - safeB) * dir;
-			}
-
-			const aDate = new Date(a.response?.created_at ?? a.created_at).getTime();
-			const bDate = new Date(b.response?.created_at ?? b.created_at).getTime();
-			return (aDate - bDate) * dir;
+	const commentAnswers = useMemo(() => {
+		if (!isFreeText) return [];
+		return answers.filter((a) => {
+			if ((a.value_text || "").trim() === "") return false;
+			const ts = new Date(a.created_at).getTime();
+			const fromOk = !range.from || ts >= new Date(range.from).getTime();
+			const toOk = !range.to || ts <= new Date(range.to).getTime();
+			return fromOk && toOk;
 		});
-	}, [answers, sortBy, sortDir, selectedQuestion]);
+	}, [answers, isFreeText, range.from, range.to]);
 
-	const formatQuestionCode = useCallback((code?: string | null) => {
-		if (!code) return "";
-		return code
-			.replace(/_/g, " ")
-			.toLowerCase()
-			.replace(/\b\w/g, (c) => c.toUpperCase());
-	}, []);
+	const pieStyle = useMemo(() => {
+		if (totalAnswers === 0) return { backgroundImage: "conic-gradient(#e5e5e5 0deg 360deg)" };
+		let acc = 0;
+		const segments: string[] = [];
+		distribution.forEach((slice) => {
+			const start = (acc / totalAnswers) * 360;
+			acc += slice.count;
+			const end = (acc / totalAnswers) * 360;
+			segments.push(`${slice.color} ${start}deg ${end}deg`);
+		});
+		return { backgroundImage: `conic-gradient(${segments.join(", ")})` };
+	}, [distribution, totalAnswers]);
 
-	const today = useMemo(() => {
-		const d = new Date();
-		d.setHours(0, 0, 0, 0);
-		return d;
-	}, []);
+	const scaleAverage = useMemo(() => {
+		if (!isScale || distribution.length === 0) return null;
+		let total = 0;
+		let count = 0;
+		distribution.forEach((slice) => {
+			const val = Number(slice.label);
+			if (!Number.isNaN(val)) {
+				total += val * slice.count;
+				count += slice.count;
+			}
+		});
+		if (count === 0) return null;
+		return total / count;
+	}, [distribution, isScale]);
 
-	const monthDays = useMemo(() => {
-		const start = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
-		const end = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
-		const startDay = start.getDay();
-		const days: Array<Date | null> = [];
-		for (let i = 0; i < startDay; i += 1) {
-			days.push(null);
-		}
-		for (let i = 1; i <= end.getDate(); i += 1) {
-			days.push(new Date(start.getFullYear(), start.getMonth(), i));
-		}
-		return days;
-	}, [monthCursor]);
-
-	const canGoNextMonth = useMemo(() => {
-		const nextMonth = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1);
-		return nextMonth <= today;
-	}, [monthCursor, today]);
+	const scaleGaugeStyle = useMemo(() => {
+		if (!isScale || scaleAverage === null) return { backgroundImage: "conic-gradient(#e5e7eb 0deg 360deg)" };
+		const pct = Math.max(0, Math.min(100, (scaleAverage / 10) * 100));
+		const deg = (pct / 100) * 360;
+		return { backgroundImage: `conic-gradient(#ec4899 0deg ${deg}deg, #e5e7eb ${deg}deg 360deg)` };
+	}, [isScale, scaleAverage]);
 
 	return (
 		<div className="space-y-6">
 			<header className="space-y-2">
 				<p className="text-xs uppercase tracking-[0.18em] text-neutral-500">Overview</p>
 				<h1 className="text-2xl font-semibold text-neutral-900">Dashboard</h1>
-				<p className="text-sm text-neutral-600">Monitor NPS, surface AI insights, and deep-dive into answers.</p>
+				<p className="text-sm text-neutral-600">Monitor NPS, AI notes, and question distributions.</p>
 			</header>
 
 			<section className="grid gap-4 md:grid-cols-2">
@@ -282,38 +376,69 @@ export default function AdminHomePage() {
 							<h2 className="text-sm font-semibold text-neutral-800">General NPS</h2>
 							<p className="text-xs text-neutral-500">Overall promoter / passive / detractor split.</p>
 						</div>
-						<select className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 shadow-sm">
-							<option>Last week</option>
-							<option>Last month</option>
-							<option>Last 90 days</option>
-							<option>Custom</option>
-						</select>
+						<div className="relative">
+							<select
+								value={statsTimeframe}
+								onChange={(e) => setStatsTimeframe(e.target.value as StatsTimeframeOption)}
+								className="h-10 appearance-none rounded-full border border-neutral-200 bg-white/90 px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm ring-1 ring-transparent transition hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
+							>
+								<option value="1d">Last day</option>
+								<option value="7d">Last week</option>
+								<option value="30d">Last month</option>
+								<option value="90d">Last 90 days</option>
+							</select>
+							<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">▾</span>
+						</div>
 					</div>
 					<div className="mt-4 grid grid-cols-3 gap-3 text-center">
 						<div className="rounded-xl border border-green-100 bg-green-50 px-3 py-4">
 							<p className="text-xs font-semibold text-green-700">Promoters</p>
-							<p className="text-2xl font-bold text-green-700">72%</p>
-							<p className="text-[11px] text-green-600">+4 pts vs prev</p>
+							<p className="text-2xl font-bold text-green-700">
+								{loadingStats ? "…" : (() => { const val = pct(stats?.nps.promoters || 0); return val === null ? "—" : `${val}%`; })()}
+							</p>
+							<p className="text-[11px] text-green-600">
+								{stats ? `${stats.nps.promoters} responses` : loadingStats ? "Loading" : "No data"}
+							</p>
 						</div>
 						<div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-4">
 							<p className="text-xs font-semibold text-amber-700">Passives</p>
-							<p className="text-2xl font-bold text-amber-700">18%</p>
-							<p className="text-[11px] text-amber-700">-1 pt vs prev</p>
+							<p className="text-2xl font-bold text-amber-700">
+								{loadingStats ? "…" : (() => { const val = pct(stats?.nps.passives || 0); return val === null ? "—" : `${val}%`; })()}
+							</p>
+							<p className="text-[11px] text-amber-700">
+								{stats ? `${stats.nps.passives} responses` : loadingStats ? "Loading" : "No data"}
+							</p>
 						</div>
 						<div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-4">
 							<p className="text-xs font-semibold text-rose-700">Detractors</p>
-							<p className="text-2xl font-bold text-rose-700">10%</p>
-							<p className="text-[11px] text-rose-700">-3 pts vs prev</p>
+							<p className="text-2xl font-bold text-rose-700">
+								{loadingStats ? "…" : (() => { const val = pct(stats?.nps.detractors || 0); return val === null ? "—" : `${val}%`; })()}
+							</p>
+							<p className="text-[11px] text-rose-700">
+								{stats ? `${stats.nps.detractors} responses` : loadingStats ? "Loading" : "No data"}
+							</p>
 						</div>
 					</div>
 					<div className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3">
-						<p className="text-sm font-semibold text-neutral-800">NPS</p>
-						<div className="mt-2 flex items-center gap-3">
-							<div className="flex-1 rounded-full bg-neutral-200 p-1">
-								<div className="h-2 w-3/4 rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-500"></div>
+						<div className="flex items-center justify-between gap-3">
+							<div>
+								<p className="text-sm font-semibold text-neutral-800">NPS</p>
+								<p className="text-[11px] text-neutral-500">{npsBase ? `${npsBase} scored responses` : loadingStats ? "Loading" : "No scored responses"}</p>
 							</div>
-							<p className="text-xl font-bold text-neutral-900">+62</p>
+							<p className="text-xl font-bold text-neutral-900">{npsLabel}</p>
 						</div>
+						<div className="mt-3 flex items-center gap-3">
+							<div className="flex-1 rounded-full bg-neutral-200 p-1">
+								<div
+									className="h-2 rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-500"
+									style={{ width: npsBarWidth }}
+								></div>
+							</div>
+							<span className="text-xs text-neutral-500">-100</span>
+							<span className="text-xs text-neutral-500">0</span>
+							<span className="text-xs text-neutral-500">100</span>
+						</div>
+						{statsError && <p className="mt-2 text-xs text-rose-600">{statsError}</p>}
 					</div>
 				</div>
 
@@ -348,55 +473,8 @@ export default function AdminHomePage() {
 			</section>
 
 			<section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-				<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-					<div className="relative z-30">
-						<button
-							type="button"
-							onClick={() => setQuestionOpen((v) => !v)}
-							disabled={loadingQuestions}
-							className="flex h-10 min-w-[260px] items-center justify-between rounded-full border border-neutral-200 bg-white px-4 text-xs font-regular text-neutral-800 shadow-sm ring-1 ring-transparent transition hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
-						>
-							<span className="truncate">Questions</span>
-							<span className="text-xs text-neutral-500">{questionOpen ? "▴" : "▾"}</span>
-						</button>
-						{questionOpen && (
-							<div className="absolute left-0 z-40 mt-2 w-[520px] max-h-80 overflow-auto rounded-2xl border border-neutral-200 bg-white p-2 shadow-2xl">
-								{loadingQuestions && (
-									<div className="px-3 py-2 text-sm text-neutral-600">Loading...</div>
-								)}
-								{!loadingQuestions && questions.length === 0 && (
-									<div className="px-3 py-2 text-sm text-neutral-600">No questions found</div>
-								)}
-								{questions.map((q) => {
-									const active = q.id === selectedQuestionId;
-									return (
-										<button
-											key={q.id}
-											type="button"
-											onClick={() => {
-												setSelectedQuestionId(q.id);
-												setQuestionOpen(false);
-											}}
-											className={`group flex w-full items-start gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-pink-50 ${active ? "bg-pink-50" : ""}`}
-										>
-											<div
-												className={`mt-1 flex h-4 w-4 items-center justify-center rounded-[4px] border text-[10px] font-semibold ${
-													active ? "border-pink-500 bg-pink-500 text-white" : "border-neutral-300 bg-white text-transparent"
-												}`}
-											>
-												✓
-											</div>
-											<div className="flex-1">
-												<p className="text-xs uppercase tracking-[0.14em] text-neutral-500">{formatQuestionCode(q.code)}</p>
-												<p className="text-sm font-medium text-neutral-900 leading-snug">{q.prompt}</p>
-											</div>
-										</button>
-									);
-								})}
-							</div>
-						)}
-					</div>
-					<div className="flex flex-wrap items-center gap-4 md:justify-end md:ml-auto">
+				<div className="flex flex-wrap items-center justify-between gap-3 md:flex-nowrap">
+					<div className="flex min-w-0 flex-wrap items-center gap-3 flex-1">
 						<div className="text-[10px] font-light uppercase tracking-[0.1em] text-neutral-500">Filter by date</div>
 						<div className="relative">
 							<select
@@ -411,7 +489,7 @@ export default function AdminHomePage() {
 								<option value="7d">Last week</option>
 								<option value="30d">Last month</option>
 								<option value="90d">Last 90 days</option>
-								{timeframe === "custom" && <option value="custom">Custom</option>}
+								<option value="custom">Custom</option>
 							</select>
 							<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">▾</span>
 						</div>
@@ -426,22 +504,16 @@ export default function AdminHomePage() {
 								className="flex h-10 items-center justify-between gap-3 rounded-full border border-neutral-200 bg-white px-3 text-xs font-regular text-neutral-800 shadow-sm transition hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
 							>
 								<span>
-									{customFrom && customTo
-										? `${customFrom} → ${customTo}`
-										: customFrom
-											? `${customFrom} → …`
-											: "Timeframe"}
+									{customFrom && customTo ? `${customFrom} → ${customTo}` : customFrom ? `${customFrom} → …` : "Timeframe"}
 								</span>
 								<span className="text-xs text-neutral-500">▾</span>
 							</button>
 							{calendarOpen && (
 								<div ref={calendarRef} className="absolute left-0 top-full z-40 mt-2 w-[360px] rounded-2xl border border-neutral-200 bg-white p-4 shadow-2xl">
-								<div className="flex items-center justify-between text-sm font-semibold text-pink-600">
+									<div className="flex items-center justify-between text-sm font-semibold text-pink-600">
 										<button
 											type="button"
-											onClick={() =>
-												setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
-											}
+											onClick={() => setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
 											className="rounded-full border border-neutral-200 px-2 py-1 text-xs text-neutral-700 hover:border-neutral-300"
 										>
 											▴
@@ -452,9 +524,7 @@ export default function AdminHomePage() {
 										<button
 											type="button"
 											disabled={!canGoNextMonth}
-											onClick={() =>
-												setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-											}
+											onClick={() => setMonthCursor((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
 											className="rounded-full border border-neutral-200 px-2 py-1 text-xs text-neutral-700 hover:border-neutral-300 disabled:cursor-not-allowed disabled:opacity-50"
 										>
 											▾
@@ -488,11 +558,11 @@ export default function AdminHomePage() {
 												? "bg-neutral-200 text-neutral-500"
 												: isStart || isEnd
 													? "bg-pink-500 text-white"
-													: isPreviewEnd
-														? "bg-pink-200 text-pink-800"
-													: inRangeActual || inRangePreview
-														? "bg-pink-100 text-pink-700"
-														: "bg-white text-neutral-800";
+												: isPreviewEnd
+													? "bg-pink-200 text-pink-800"
+												: inRangeActual || inRangePreview
+													? "bg-pink-100 text-pink-700"
+													: "bg-white text-neutral-800";
 
 											return (
 												<button
@@ -517,28 +587,28 @@ export default function AdminHomePage() {
 																setCalendarOpen(false);
 																setHoverDay(null);
 															}
-													}
+														}
 												}}
 												onMouseEnter={() => {
 													if (!disabled && start !== null && end === null) {
 														setHoverDay(day);
 													}
-												}}
+											}}
 												onMouseLeave={() => {
 													if (!disabled) setHoverDay(null);
-												}}
+											}}
 												className={`flex h-10 w-10 items-center justify-center rounded-full ${bg} transition hover:border hover:border-pink-200 disabled:cursor-not-allowed`}
 											>
 												{day.getDate()}
 											</button>
-											);
-										})}
-									</div>
-						</div>
+										);
+									})}
+								</div>
+							</div>
 						)}
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<div className="text-[10px] font-regular uppercase tracking-[0.14em] text-neutral-500">Filter by location</div>
+					<div className="flex items-center gap-2 md:ml-auto shrink-0">
+						<div className="text-[10px] font-regular uppercase tracking-[0.14em] text-neutral-500">Location</div>
 						<div className="relative">
 							<select
 								className="h-10 appearance-none rounded-full border border-neutral-200 bg-white/90 px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm ring-1 ring-transparent transition hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
@@ -554,172 +624,135 @@ export default function AdminHomePage() {
 					</div>
 				</div>
 				</div>
-				<div className="mt-6 flex flex-wrap items-center gap-2 text-sm text-neutral-700">
-					<span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Selected question</span>
-					<span className="font-semibold text-pink-600">{selectedQuestion?.prompt ?? "No question selected"}</span>
-				</div>
 
-				<div className="mt-6 overflow-hidden rounded-xl border border-neutral-200">
-					<table className="min-w-full divide-y divide-neutral-200 text-sm">
-						<thead className="bg-neutral-50 text-neutral-600">
-							<tr>
-								<th className="px-4 py-2 text-left font-semibold">
-									<button
-										type="button"
-										onClick={() => {
-											const allSelected = answers.length > 0 && answers.every((a) => selectedRows[a.id]);
-											if (allSelected) {
-												setSelectedRows({});
-											} else {
-												const next: RowSelection = {};
-												answers.forEach((row) => {
-													next[row.id] = true;
-												});
-												setSelectedRows(next);
-											}
-										}}
-										className="flex h-4 w-4 items-center justify-center rounded-[4px] border text-[10px] font-semibold transition hover:border-pink-400"
-										style={{
-											backgroundColor:
-												answers.length > 0 && answers.every((a) => selectedRows[a.id])
-													? "#ec4899"
-													: "white",
-											borderColor:
-												answers.length > 0 && answers.every((a) => selectedRows[a.id])
-													? "#ec4899"
-													: "#d4d4d8",
-											color:
-												answers.length > 0 && answers.every((a) => selectedRows[a.id])
-													? "white"
-													: "transparent",
-										}}
-									>
-										✓
-									</button>
-								</th>
-								<th className="px-4 py-2 text-left font-semibold">Customer</th>
-								<th className="px-4 py-2 text-left font-semibold">Location</th>
-								<th className="px-4 py-2 text-left font-semibold">
-									<button
-										type="button"
-										onClick={() => handleSort("answer")}
-										className="flex items-center gap-1 text-neutral-700 hover:text-pink-600"
-									>
-										Answer
-										<span className="text-[10px] leading-none text-neutral-400">
-											{sortBy === "answer" ? (sortDir === "asc" ? "▲" : "▼") : "▵"}
-										</span>
-									</button>
-								</th>
-								<th className="px-4 py-2 text-left font-semibold">
-									<button
-										type="button"
-										onClick={() => handleSort("sentiment")}
-										className="flex items-center gap-1 text-neutral-700 hover:text-pink-600"
-									>
-										Sentiment
-										<span className="text-[10px] leading-none text-neutral-400">
-											{sortBy === "sentiment" ? (sortDir === "asc" ? "▲" : "▼") : "▵"}
-										</span>
-									</button>
-								</th>
-								<th className="px-4 py-2 text-left font-semibold">
-									<button
-										type="button"
-										onClick={() => handleSort("date")}
-										className="flex items-center gap-1 text-neutral-700 hover:text-pink-600"
-									>
-										Date
-										<span className="text-[10px] leading-none text-neutral-400">
-											{sortBy === "date" ? (sortDir === "asc" ? "▲" : "▼") : "▵"}
-										</span>
-									</button>
-								</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-neutral-200 bg-white text-neutral-800">
-							{loadingAnswers && (
+				{error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+
+				<div className="mt-6 grid gap-5 lg:grid-cols-3">
+					<div className="lg:col-span-2 overflow-hidden rounded-xl border border-neutral-200">
+						<table className="min-w-full divide-y divide-neutral-200 text-sm">
+							<thead className="bg-neutral-50 text-neutral-600">
 								<tr>
-									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={6}>
-										Loading latest answers...
-									</td>
+									<th className="px-4 py-2 text-left font-semibold">Question</th>
+									<th className="px-4 py-2 text-left font-semibold">Status</th>
 								</tr>
-							)}
-							{!loadingAnswers && answers.length === 0 && (
-								<tr>
-									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={6}>
-										No answers found for this filter.
-									</td>
-								</tr>
-							)}
-							{!loadingAnswers &&
-								sortedAnswers.map((row) => (
-									<tr key={row.id}>
-										<td className="px-4 py-3 text-sm text-neutral-800">
-											<button
-												type="button"
-												onClick={() => {
-												setSelectedRows((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
-											}}
-												className="flex h-4 w-4 items-center justify-center rounded-[4px] border text-[10px] font-semibold transition hover:border-pink-400"
-												style={{
-													backgroundColor: selectedRows[row.id] ? "#ec4899" : "white",
-													borderColor: selectedRows[row.id] ? "#ec4899" : "#d4d4d8",
-													color: selectedRows[row.id] ? "white" : "transparent",
-												}}
-											>
-												✓
-											</button>
-										</td>
-										<td className="px-4 py-3 text-sm font-medium text-neutral-900">
-											{row.response?.customer_name || row.response?.customer_email || "Guest"}
-										</td>
-										<td className="px-4 py-3 text-sm text-neutral-600">
-											{locationLabel(row.response?.location)}
-										</td>
-										<td className="px-4 py-3 text-sm text-neutral-800">
-											{formatAnswer(row, selectedQuestion)}
-										</td>
-										<td className="px-4 py-3 text-sm text-neutral-700">
-											{row.response?.sentiment_score !== null && row.response?.sentiment_score !== undefined
-												? row.response.sentiment_score.toFixed(2)
-												: "—"}
-										</td>
-										<td className="px-4 py-3 text-sm text-neutral-600">
-											{row.response?.created_at?.slice(0, 10) || row.created_at.slice(0, 10)}
+							</thead>
+							<tbody className="divide-y divide-neutral-200 bg-white text-neutral-800">
+								{!loadingQuestions && questions.length === 0 && (
+									<tr>
+										<td className="px-4 py-3 text-sm text-neutral-500" colSpan={2}>
+											No active questions found.
 										</td>
 									</tr>
-								))}
-						</tbody>
-					</table>
-				</div>
-
-					<div className="mt-3 flex items-center justify-between text-sm text-neutral-700">
-						<div>
-							Page {page} of {Math.max(1, Math.ceil(total / pageSize))} · {total} total
-						</div>
-						<div className="flex items-center gap-2">
-							<button
-								disabled={page <= 1 || loadingAnswers}
-								onClick={() => setPage((p) => Math.max(1, p - 1))}
-								className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								Prev
-							</button>
-							<button
-								disabled={page * pageSize >= total || loadingAnswers}
-								onClick={() => setPage((p) => p + 1)}
-								className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
-							>
-								Next
-							</button>
-						</div>
+								)}
+								{questions.map((q) => {
+									const active = q.id === selectedQuestionId;
+									return (
+										<tr
+											key={q.id}
+											onClick={() => setSelectedQuestionId(q.id)}
+											className={`cursor-pointer transition ${active ? "bg-pink-50" : "hover:bg-neutral-50"}`}
+										>
+											<td className="px-4 py-3">
+												<p className="text-sm font-medium text-neutral-900">{q.prompt}</p>
+												<div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] uppercase text-neutral-500">
+													<span className="rounded-full border border-pink-200 bg-pink-50 px-2 py-[2px] text-[10px] font-semibold text-pink-700 tracking-normal">
+														{formatQuestionCode(q.code)}
+													</span>
+												</div>
+											</td>
+											<td className="px-4 py-3 text-sm font-semibold text-pink-600">Active</td>
+										</tr>
+									);
+								})}
+							</tbody>
+						</table>
 					</div>
 
-				{error && (
-					<p className="mt-3 text-sm text-rose-600">{error}</p>
-				)}
+					<div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+						<div className="flex items-center justify-between">
+							<div>
+								<p className="text-sm font-semibold text-neutral-800">
+									{isFreeText ? "Comments" : isScale ? "Score distribution" : "Answer distribution"}
+								</p>
+								<p className="text-xs text-neutral-500">
+									{isFreeText ? "Showing submitted text answers" : isScale ? "Scores with filters applied" : "Pie updates with filters and selection."}
+								</p>
+							</div>
+							<div className="text-xs text-neutral-500">{isFreeText ? commentAnswers.length : totalAnswers} responses</div>
+						</div>
+
+						{isFreeText && (
+							<div className="mt-4 space-y-3 max-h-96 overflow-y-auto pr-1">
+								{loadingDist && <p className="text-sm text-neutral-600">Loading…</p>}
+								{!loadingDist && commentAnswers.length === 0 && <p className="text-sm text-neutral-600">No comments in this window.</p>}
+								{commentAnswers.map((a) => (
+										<div key={a.id} className="relative rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 pt-5">
+										{a.response?.location && (
+											<span className="absolute right-3 top-2 rounded-full bg-pink-100 px-2 py-[1px] text-[9px] font-semibold uppercase tracking-[0.12em] text-pink-700">
+												{a.response.location}
+											</span>
+										)}
+										<p className="text-sm text-neutral-900 pr-12">{a.value_text}</p>
+										<div className="mt-2 flex items-center justify-between text-[11px] tracking-[0.08em] text-neutral-500">
+											<div className="flex items-center gap-3">
+												{a.response?.customer_name && <span className="capitalize tracking-normal">{a.response.customer_name.toLowerCase()}</span>}
+											</div>
+											<span className="uppercase">{new Date(a.created_at).toLocaleDateString()}</span>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+
+						{isScale && (
+							<div className="mt-4 flex min-h-[320px] flex-col items-center justify-center gap-5">
+								<div
+									className="flex h-48 w-48 items-center justify-center rounded-full bg-neutral-100"
+									style={scaleGaugeStyle}
+								>
+									<div className="flex h-28 w-28 items-center justify-center rounded-full bg-white text-2xl font-semibold text-neutral-900 shadow-inner">
+										{scaleAverage === null ? "—" : scaleAverage.toFixed(1)}
+									</div>
+								</div>
+								<p className="text-xs text-neutral-500">Average score (0-10)</p>
+							</div>
+						)}
+
+						{isPie && (
+							<div className="mt-4 flex flex-col items-center justify-center gap-4">
+								<div
+									className="flex h-56 w-56 items-center justify-center rounded-full bg-neutral-100"
+									style={pieStyle}
+								>
+									<div className="h-32 w-32 rounded-full bg-white shadow-inner flex items-center justify-center text-sm font-semibold text-neutral-800">
+										{loadingDist ? "Loading" : totalAnswers === 0 ? "No data" : ""}
+									</div>
+								</div>
+								<div className="w-full space-y-2">
+									{distribution.map((slice) => {
+										const pct = totalAnswers ? Math.round((slice.count / totalAnswers) * 100) : 0;
+										return (
+											<div key={slice.label} className="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2">
+												<div className="flex items-center gap-2">
+													<span className="h-3 w-3 rounded-full" style={{ backgroundColor: slice.color }}></span>
+													<span className="text-sm font-medium text-neutral-800">{slice.label}</span>
+												</div>
+												<div className="text-sm text-neutral-700">
+													{slice.count} · {pct}%
+												</div>
+											</div>
+										);
+									})}
+									{!loadingDist && distribution.length === 0 && (
+										<p className="text-sm text-neutral-600">No responses in this window.</p>
+									)}
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
 			</section>
 		</div>
 	);
 }
+
