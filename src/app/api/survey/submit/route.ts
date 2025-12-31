@@ -8,6 +8,7 @@ import {
 	sendAlertEmail,
 	sendAlertSms,
 } from "@/services/alert.service";
+import { sendCouponEmail } from "@/lib/email/send";
 
 const answerSchema = z.object({
 	question_id: z.string().uuid(),
@@ -153,6 +154,8 @@ export async function POST(request: Request) {
 		// Fire alerts for detractors / negative sentiment (non-blocking)
 		const shouldAlert =
 			(nps_score !== null && nps_score <= 6) || (sentiment_score !== null && sentiment_score <= -0.2);
+
+		const backgroundSends: Array<Promise<unknown>> = [sendCouponEmail(email, name, location)];
 		if (shouldAlert) {
 			const message = buildAlertMessage({
 				email,
@@ -162,11 +165,11 @@ export async function POST(request: Request) {
 				sentiment: sentiment_score,
 				improvement_text,
 			});
-			Promise.allSettled([
-				sendAlertEmail("Tacology survey alert", message),
-				sendAlertSms(message),
-			]).catch((err) => console.error("Alert dispatch failed", err));
+			backgroundSends.push(sendAlertEmail("Tacology survey alert", message));
+			backgroundSends.push(sendAlertSms(message));
 		}
+
+		Promise.allSettled(backgroundSends).catch((err) => console.error("Async dispatch failed", err));
 
 		return NextResponse.json({ responseId });
 	} catch (error) {
