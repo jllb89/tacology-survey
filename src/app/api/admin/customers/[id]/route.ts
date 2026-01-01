@@ -10,10 +10,9 @@ const updateSchema = z.object({
 	phone: z.string().trim().optional(),
 });
 
-export async function GET(_: Request, context: { params: { id: string } | Promise<{ id: string }> }) {
+export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
 	try {
-		const params = await context.params;
-		const { id } = idSchema.parse(params);
+		const { id } = idSchema.parse(await context.params);
 		const customer = await getCustomer(id);
 		return NextResponse.json(customer);
 	} catch (error) {
@@ -25,10 +24,9 @@ export async function GET(_: Request, context: { params: { id: string } | Promis
 	}
 }
 
-export async function PATCH(request: Request, context: { params: { id: string } | Promise<{ id: string }> }) {
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
 	try {
-		const params = await context.params;
-		const { id } = idSchema.parse(params);
+		const { id } = idSchema.parse(await context.params);
 		const body = await request.json();
 		const payload = updateSchema.parse(body);
 		const updated = await updateCustomer(id, payload);
@@ -42,9 +40,9 @@ export async function PATCH(request: Request, context: { params: { id: string } 
 	}
 }
 
-export async function DELETE(_: Request, context: { params: { id: string } }) {
+export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
 	try {
-		const { id } = idSchema.parse(context.params);
+		const { id } = idSchema.parse(await context.params);
 		await deleteCustomer(id);
 		return NextResponse.json({ success: true });
 	} catch (error) {
