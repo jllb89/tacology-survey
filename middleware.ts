@@ -19,6 +19,11 @@ function isPublicAdminPath(pathname: string) {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Allow public read of survey questions for the public survey flow
+  if (pathname === "/api/admin/questions" && req.method === "GET") {
+    return NextResponse.next();
+  }
+
   if (!isAdminPath(pathname) || isPublicAdminPath(pathname)) {
     return NextResponse.next();
   }
