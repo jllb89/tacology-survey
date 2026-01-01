@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -23,7 +23,7 @@ function parseHash(hash: string) {
   return { access_token, refresh_token, type };
 }
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/admin";
@@ -62,4 +62,12 @@ export default function AuthCallbackPage() {
       <p className="text-xs text-gray-500">If this hangs, ensure the URL still has #access_token and refresh_token.</p>
     </div>
   );
+}
+
+export default function AuthCallbackPage() {
+	return (
+		<Suspense fallback={<div className="space-y-2"><h1 className="text-xl font-semibold">Auth callback</h1><p className="text-sm text-gray-600">Completing sign-in...</p></div>}>
+			<AuthCallbackContent />
+		</Suspense>
+	);
 }
