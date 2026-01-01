@@ -4,10 +4,9 @@ import { listCustomerVisits } from "@/repositories/visits.repo";
 
 const idSchema = z.object({ id: z.string().uuid() });
 
-export async function GET(_: Request, context: { params: { id: string } | Promise<{ id: string }> }) {
+export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
 	try {
-		const params = await context.params;
-		const { id } = idSchema.parse(params);
+		const { id } = idSchema.parse(await context.params);
 		console.info("admin/customer visits GET", { id });
 		const visits = await listCustomerVisits(id);
 		return NextResponse.json({ visits });
