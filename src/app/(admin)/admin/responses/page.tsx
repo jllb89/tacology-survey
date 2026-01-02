@@ -61,6 +61,8 @@ function formatAnswer(row: AnswerApiRow, question: Question | null) {
 	}
 
 	if (question.question_type === "single_choice") {
+		// Prefer stored text; fall back to label lookup by index if provided
+		if (row.value_text) return row.value_text;
 		const labels = question.options?.labels || [];
 		const idx = (row.value_number ?? 0) - 1;
 		return labels[idx] || (row.value_number !== null ? row.value_number.toString() : "");
