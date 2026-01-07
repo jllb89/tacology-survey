@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 type Customer = {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   phone: string | null;
   created_at: string;
   updated_at: string;
@@ -57,6 +57,12 @@ export default function AdminCustomersPage() {
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -150,6 +156,11 @@ export default function AdminCustomersPage() {
 
         setSelectedCustomer(customerJson as Customer);
         setVisits(Array.isArray(visitsJson?.visits) ? visitsJson.visits : []);
+        setEditName((customerJson as Customer).name || "");
+        setEditEmail((customerJson as Customer).email || "");
+        setEditPhone((customerJson as Customer).phone || "");
+        setSaveError(null);
+        setSaveSuccess(false);
       } catch (err: any) {
         console.error(err);
         setError(err?.message || "Failed to load customer detail");
@@ -168,6 +179,51 @@ export default function AdminCustomersPage() {
       return matchesLocation && created >= visitRange.from && created <= visitRange.to;
     });
   }, [visits, visitLocationFilter, visitRange.from, visitRange.to]);
+
+  const hasCustomerChanges = useMemo(() => {
+    if (!selectedCustomer) return false;
+    const baseName = selectedCustomer.name || "";
+    const baseEmail = selectedCustomer.email || "";
+    const basePhone = selectedCustomer.phone || "";
+    return (
+      editName.trim() !== baseName.trim() ||
+      editEmail.trim() !== baseEmail.trim() ||
+      editPhone.trim() !== basePhone.trim()
+    );
+  }, [selectedCustomer, editName, editEmail, editPhone]);
+
+  async function handleSaveCustomer() {
+    if (!selectedCustomerId) return;
+    setSavingCustomer(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      const payload: Record<string, string | undefined> = {
+        name: editName.trim() || undefined,
+        email: editEmail.trim() || undefined,
+        phone: editPhone.trim() || undefined,
+      };
+
+      const res = await fetch(`/api/admin/customers/${selectedCustomerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Failed to update customer");
+
+      const updated = json as Customer;
+      setSelectedCustomer(updated);
+      setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      setSaveSuccess(true);
+    } catch (err: any) {
+      console.error(err);
+      setSaveError(err?.message || "Failed to save customer");
+    } finally {
+      setSavingCustomer(false);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -283,8 +339,8 @@ export default function AdminCustomersPage() {
                     onClick={() => setSelectedCustomerId(customer.id)}
                     className={`flex w-full flex-col items-start gap-0.5 border-b border-neutral-100 px-4 py-3 text-left transition hover:bg-neutral-50 ${active ? "border-l-4 border-[#EB5A95] bg-[#EB5A95]/10" : "border-l-4 border-transparent"}`}
                   >
-                    <span className={`text-sm font-semibold ${active ? "text-[#EB5A95]" : "text-neutral-900"}`}>{customer.name || customer.email}</span>
-                    <span className={`text-xs ${active ? "text-[#EB5A95]" : "text-neutral-500"}`}>{customer.email}</span>
+                    <span className={`text-sm font-semibold ${active ? "text-[#EB5A95]" : "text-neutral-900"}`}>{customer.name || customer.email || "(No name)"}</span>
+                    <span className={`text-xs ${active ? "text-[#EB5A95]" : "text-neutral-500"}`}>{customer.email || "No email"}</span>
                   </button>
                 );
               })}
@@ -294,14 +350,48 @@ export default function AdminCustomersPage() {
             {loadingDetail && <div className="text-sm text-neutral-500">Loading customer details...</div>}
             {!loadingDetail && selectedCustomer && (
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-2xl font-semibold text-[#EB5A95] mb-2">{selectedCustomer.name || selectedCustomer.email}</h3>
-                  <p className="text-xs text-[#EB5A95] underline mb-1">
-                    <a href={`mailto:${selectedCustomer.email}`}>{selectedCustomer.email}</a>
-                  </p>
-                  <p className="text-xs text-neutral-700 underline">
-                    <a href={`tel:${selectedCustomer.phone || ""}`}>{selectedCustomer.phone || "No phone"}</a>
-                  </p>
+                  <div className="space-y-4">
+                    <div className="w-full md:w-1/2">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-neutral-500 mb-1">Name</p>
+                    <input
+                      className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-[#EB5A95] focus:ring-2 focus:ring-[#EB5A95]/20 focus:outline-none"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="Add a name"
+                    />
+                  </div>
+                    <div className="w-full md:w-1/2">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-neutral-500 mb-1">Email</p>
+                    <input
+                      className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-[#EB5A95] focus:ring-2 focus:ring-[#EB5A95]/20 focus:outline-none"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      placeholder="Add an email"
+                      type="email"
+                    />
+                  </div>
+                    <div className="w-full md:w-1/2">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-neutral-500 mb-1">Phone</p>
+                    <input
+                      className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-[#EB5A95] focus:ring-2 focus:ring-[#EB5A95]/20 focus:outline-none"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="Add a phone"
+                      type="tel"
+                    />
+                  </div>
+                    <div className="flex items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleSaveCustomer}
+                      disabled={savingCustomer || !hasCustomerChanges}
+                      className="inline-flex items-center rounded-full bg-[#EB5A95] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#d94483] disabled:opacity-50"
+                    >
+                      {savingCustomer ? "Saving…" : "Save changes"}
+                    </button>
+                    {saveSuccess && <span className="text-xs text-emerald-600">Saved</span>}
+                    {saveError && <span className="text-xs text-rose-600">{saveError}</span>}
+                  </div>
                 </div>
                 <div className="mt-4">
                   <p className="text-xs uppercase tracking-[0.14em] text-[#EB5A95]">Visits</p>
