@@ -52,8 +52,11 @@ function computeRange(timeframe: TimeframeOption, customFrom: string, customTo: 
 	const days = effective === "1d" ? 1 : effective === "7d" ? 7 : effective === "30d" ? 30 : 90;
 	const fromDate = new Date(now);
 	fromDate.setDate(now.getDate() - (days - 1));
+	fromDate.setHours(0, 0, 0, 0);
+	const toDate = new Date(now);
+	toDate.setHours(23, 59, 59, 999);
 
-	return { from: fromDate.toISOString(), to: now.toISOString() };
+	return { from: fromDate.toISOString(), to: toDate.toISOString() };
 }
 
 function formatAnswer(row: AnswerApiRow, question: Question | null) {

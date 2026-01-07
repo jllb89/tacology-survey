@@ -45,7 +45,10 @@ function computeRange(timeframe: TimeframeOption) {
   const days = timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365;
   const from = new Date(now);
   from.setDate(now.getDate() - (days - 1));
-  return { from: from.toISOString(), to: now.toISOString() };
+  from.setHours(0, 0, 0, 0);
+  const toDate = new Date(now);
+  toDate.setHours(23, 59, 59, 999);
+  return { from: from.toISOString(), to: toDate.toISOString() };
 }
 
 export default function AdminCustomersPage() {
