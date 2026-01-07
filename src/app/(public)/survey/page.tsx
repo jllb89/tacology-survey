@@ -38,7 +38,6 @@ export default function SurveyPage() {
   const [startLoading, setStartLoading] = useState(false);
 
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
-  const [improvementText, setImprovementText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -80,7 +79,7 @@ export default function SurveyPage() {
     setMounted(true);
   }, []);
 
-  const totalSteps = useMemo(() => questions.length + 2, [questions.length]);
+  const totalSteps = useMemo(() => questions.length + 1, [questions.length]);
 
   const currentQuestion = useMemo(() => {
     if (step === 0) return null;
@@ -231,7 +230,6 @@ export default function SurveyPage() {
           }
           return { question_id: q.id, value_text: ans.value_text ?? "" };
         }),
-        improvement_text: improvementText.trim() || undefined,
       };
 
       const res = await fetch("/api/survey/submit", {
@@ -255,12 +253,13 @@ export default function SurveyPage() {
       handleStart();
       return;
     }
-    if (step >= 1 && step <= questions.length) {
+    if (step >= 1 && step < questions.length) {
       if (!currentQuestionAnswered(currentQuestion)) return;
       setStep((s) => s + 1);
       return;
     }
-    if (step === questions.length + 1) {
+    if (step === questions.length) {
+      if (!currentQuestionAnswered(currentQuestion) || submitting) return;
       handleSubmit();
     }
   }
@@ -272,7 +271,7 @@ export default function SurveyPage() {
     setStep((s) => Math.max(0, s - 1));
   }
 
-  const atFinalStep = step === questions.length + 1;
+// Final step removed; last question submits directly
 
   if (isLoading) {
     return (
@@ -535,42 +534,10 @@ export default function SurveyPage() {
                     <button
                       type="button"
                       onClick={goNext}
-                      disabled={!canGoNext()}
+                      disabled={!canGoNext() || (step === questions.length && submitting)}
                       className="inline-flex items-center rounded-full bg-pink-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-pink-700 disabled:opacity-60"
                     >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {!submitted && atFinalStep && (
-                <div className="space-y-4">
-                  <p className="text-xs uppercase tracking-[0.14em] text-pink-600">Last step</p>
-                  <h2 className="text-xl font-semibold text-neutral-900">Anything else we should improve?</h2>
-                  <textarea
-                    className="w-full rounded-xl border border-neutral-200 px-3 py-3 text-sm shadow-sm focus:border-[#EB5A95] focus:ring-2 focus:ring-pink-100 focus:outline-none focus:ring-offset-0 resize-none"
-                    rows={5}
-                    placeholder="Share details to help us improve"
-                    value={improvementText}
-                    onChange={(e) => setImprovementText(e.target.value)}
-                  />
-                  {submitError && <p className="text-sm text-rose-600">{submitError}</p>}
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={goPrev}
-                      className="inline-flex items-center rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-700 hover:border-neutral-300"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={goNext}
-                      disabled={submitting}
-                      className="inline-flex items-center rounded-full bg-pink-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-pink-700 disabled:opacity-60"
-                    >
-                      {submitting ? "Submitting…" : "Submit"}
+                      {step === questions.length ? (submitting ? "Submitting…" : "Submit") : "Next"}
                     </button>
                   </div>
                 </div>

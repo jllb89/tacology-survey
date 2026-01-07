@@ -117,7 +117,7 @@ function buildDistribution(question: Question | null, answers: AnswerApiRow[]): 
 		const labels = question.options?.labels || [];
 		const buckets = labels.map(() => 0);
 		answers.forEach((row) => {
-			const idx = (row.value_number ?? 0) - 1;
+			const idx = labels.indexOf(row.value_text || "");
 			if (idx >= 0 && idx < buckets.length) buckets[idx] += 1;
 		});
 		return buckets.map((count, idx) => ({ label: labels[idx] || `Option ${idx + 1}`, count, color: palette[idx % palette.length] }));
@@ -139,6 +139,7 @@ export default function AdminHomePage() {
 	const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
 	const [timeframe, setTimeframe] = useState<TimeframeOption>("30d");
 	const [statsTimeframe, setStatsTimeframe] = useState<StatsTimeframeOption>("30d");
+	const [statsLocation, setStatsLocation] = useState<LocationFilter>("all");
 	const [insightsTimeframe, setInsightsTimeframe] = useState<InsightsTimeframeOption>("30d");
 	const [location, setLocation] = useState<LocationFilter>("all");
 	const [insightsLocation, setInsightsLocation] = useState<LocationFilter>("all");
@@ -311,7 +312,7 @@ export default function AdminHomePage() {
 			const params = new URLSearchParams();
 			params.set("from", statsRange.from);
 			params.set("to", statsRange.to);
-			if (location !== "all") params.set("location", location);
+			if (statsLocation !== "all") params.set("location", statsLocation);
 			const res = await fetch(`/api/admin/stats?${params.toString()}`, { cache: "no-store" });
 			const json = await res.json();
 			if (!res.ok) {
@@ -325,7 +326,7 @@ export default function AdminHomePage() {
 		} finally {
 			setLoadingStats(false);
 		}
-	}, [statsRange.from, statsRange.to, location]);
+	}, [statsRange.from, statsRange.to, statsLocation]);
 
 	useEffect(() => {
 		loadQuestions();
@@ -422,25 +423,39 @@ export default function AdminHomePage() {
 						<div>
 							<p className="text-[11px] uppercase tracking-[0.14em] text-[#EB5A95]">General NPS</p>
 							<h2 className="text-xl font-semibold text-[#EB5A95]">Overall split</h2>
-							<p className="text-xs text-neutral-600">Promoters, passives, and detractors for the window.</p>
-						</div>
-						<div className="relative">
-							<select
-								value={statsTimeframe}
-								onChange={(e) => setStatsTimeframe(e.target.value as StatsTimeframeOption)}
-								className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
-							>
-								<option value="1d">Last day</option>
-								<option value="7d">Last week</option>
-								<option value="30d">Last month</option>
-								<option value="90d">Last 90 days</option>
-							</select>
-							<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#EB5A95]">▾</span>
+{/* 							<p className="text-xs text-neutral-600">Happy, on-the-fence, and unhappy guests for the window.</p>
+ */}						</div>
+						<div className="flex flex-wrap items-center gap-2">
+							<div className="relative">
+								<select
+									value={statsTimeframe}
+									onChange={(e) => setStatsTimeframe(e.target.value as StatsTimeframeOption)}
+									className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
+								>
+									<option value="1d">Last day</option>
+									<option value="7d">Last week</option>
+									<option value="30d">Last month</option>
+									<option value="90d">Last 90 days</option>
+								</select>
+								<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#EB5A95]">▾</span>
+							</div>
+							<div className="relative">
+								<select
+									value={statsLocation}
+									onChange={(e) => setStatsLocation(e.target.value as LocationFilter)}
+									className="h-9 appearance-none rounded-full border border-[#EB5A95]/30 bg-white px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#EB5A95]/40"
+								>
+									<option value="all">All locations</option>
+									<option value="brickell">Brickell</option>
+									<option value="wynwood">Wynwood</option>
+								</select>
+								<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#EB5A95]">▾</span>
+							</div>
 						</div>
 					</div>
 					<div className="mt-4 grid grid-cols-3 gap-3 text-center">
 						<div className="rounded-xl border border-green-100 bg-green-50 px-3 py-4">
-							<p className="text-xs font-semibold text-green-700">Promoters</p>
+							<p className="text-xs font-semibold text-green-700">Happy guests (9-10)</p>
 							<p className="text-2xl font-bold text-green-700">
 								{loadingStats ? "…" : (() => { const val = pct(stats?.nps.promoters || 0); return val === null ? "—" : `${val}%`; })()}
 							</p>
@@ -449,7 +464,7 @@ export default function AdminHomePage() {
 							</p>
 						</div>
 						<div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-4">
-							<p className="text-xs font-semibold text-amber-700">Passives</p>
+							<p className="text-xs font-semibold text-amber-700">Neutral guests (7-8)</p>
 							<p className="text-2xl font-bold text-amber-700">
 								{loadingStats ? "…" : (() => { const val = pct(stats?.nps.passives || 0); return val === null ? "—" : `${val}%`; })()}
 							</p>
@@ -458,7 +473,7 @@ export default function AdminHomePage() {
 							</p>
 						</div>
 						<div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-4">
-							<p className="text-xs font-semibold text-rose-700">Detractors</p>
+							<p className="text-xs font-semibold text-rose-700">Unhappy guests (0-6)</p>
 							<p className="text-2xl font-bold text-rose-700">
 								{loadingStats ? "…" : (() => { const val = pct(stats?.nps.detractors || 0); return val === null ? "—" : `${val}%`; })()}
 							</p>
