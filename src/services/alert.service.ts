@@ -50,17 +50,18 @@ export async function sendAlertSms(text: string) {
 }
 
 export function buildAlertMessage(input: {
-	email: string;
+	email?: string | null;
 	name?: string | null;
 	location: string;
 	nps?: number | null;
 	sentiment?: number | null;
 	improvement_text?: string | null;
 }) {
+	const emailDisplay = input.email || "no email provided";
 	const lines = [
 		"New low-sentiment survey detected",
 		`Location: ${input.location}`,
-		`Customer: ${input.name ? `${input.name} (${input.email})` : input.email}`,
+		`Customer: ${input.name ? `${input.name} (${emailDisplay})` : emailDisplay}`,
 		input.nps !== undefined && input.nps !== null ? `NPS: ${input.nps}` : null,
 		input.sentiment !== undefined && input.sentiment !== null
 			? `Sentiment score: ${input.sentiment.toFixed(2)}`
