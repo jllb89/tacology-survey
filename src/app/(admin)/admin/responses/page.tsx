@@ -91,10 +91,9 @@ export default function AdminResponsesPage() {
 	const [total, setTotal] = useState(0);
 	const [selectedRows, setSelectedRows] = useState<RowSelection>({});
 	// ✅ Make client defaults match the desired server behavior (newest first)
-	const [sortBy, setSortBy] = useState<"answer" | "sentiment" | "date">("date");
+	const [sortBy, setSortBy] = useState<"answer" | "date">("date");
 	const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-	const [sentimentFilter, setSentimentFilter] = useState<"all" | "positive" | "neutral" | "negative">("all");
-	const [npsFilter, setNpsFilter] = useState<"all" | "promoter" | "passive" | "detractor" | "missing">("all");
+	const [answerFilter, setAnswerFilter] = useState<string | number | null>(null);
 	const [questionOpen, setQuestionOpen] = useState(false);
 	const [calendarOpen, setCalendarOpen] = useState(false);
 	const [monthCursor, setMonthCursor] = useState(() => new Date());
@@ -152,8 +151,13 @@ export default function AdminResponsesPage() {
 			}
 			if (range.from) params.set("from", range.from);
 			if (range.to) params.set("to", range.to);
-			if (sentimentFilter !== "all") params.set("sentiment", sentimentFilter);
-			if (npsFilter !== "all") params.set("npsBucket", npsFilter);
+			if (selectedQuestion && answerFilter !== null) {
+				if (selectedQuestion.question_type === "single_choice") {
+					params.set("answer", String(answerFilter));
+				} else if (selectedQuestion.question_type === "scale_0_10") {
+					params.set("answerNumber", String(answerFilter));
+				}
+			}
 
 			const res = await fetch(`/api/admin/answers?${params.toString()}`, { cache: "no-store" });
 			const json = await res.json();
@@ -169,7 +173,7 @@ export default function AdminResponsesPage() {
 		} finally {
 			setLoadingAnswers(false);
 		}
-	}, [selectedQuestionId, location, range.from, range.to, page, pageSize, sortBy, sortDir, sentimentFilter, npsFilter]);
+	}, [selectedQuestionId, selectedQuestion?.question_type, location, range.from, range.to, page, pageSize, sortBy, sortDir, answerFilter]);
 
 	useEffect(() => {
 		loadQuestions();
@@ -177,11 +181,15 @@ export default function AdminResponsesPage() {
 
 	useEffect(() => {
 		setPage(1);
-	}, [selectedQuestionId, location, timeframe, customFrom, customTo, pageSize, sentimentFilter, npsFilter, sortBy, sortDir]);
+	}, [selectedQuestionId, location, timeframe, customFrom, customTo, pageSize, sortBy, sortDir, answerFilter]);
 
 	useEffect(() => {
 		loadAnswers();
 	}, [loadAnswers]);
+
+	useEffect(() => {
+		setAnswerFilter(null);
+	}, [selectedQuestionId]);
 
 	useEffect(() => {
 		function handleClickOutside(event: MouseEvent) {
@@ -212,7 +220,7 @@ export default function AdminResponsesPage() {
 		return "—";
 	};
 
-	const handleSort = (column: "answer" | "sentiment" | "date") => {
+	const handleSort = (column: "answer" | "date") => {
 		if (sortBy === column) {
 			setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
 		} else {
@@ -235,6 +243,18 @@ export default function AdminResponsesPage() {
 		d.setHours(0, 0, 0, 0);
 		return d;
 	}, []);
+
+	const answerFilterPills = useMemo(() => {
+		if (!selectedQuestion) return [] as Array<{ label: string; value: string | number }>;
+		if (selectedQuestion.question_type === "single_choice") {
+			const labels = selectedQuestion.options?.labels ?? [];
+			return labels.map((label) => ({ label, value: label }));
+		}
+		if (selectedQuestion.question_type === "scale_0_10") {
+			return Array.from({ length: 11 }, (_, idx) => ({ label: String(idx), value: idx }));
+		}
+		return [] as Array<{ label: string; value: string | number }>;
+	}, [selectedQuestion]);
 
 	const monthDays = useMemo(() => {
 		const start = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
@@ -474,40 +494,6 @@ export default function AdminResponsesPage() {
 					</div>
 
 					<div className="flex flex-wrap items-center gap-3 md:gap-4">
-						<div className="flex items-center gap-2">
-							<div className="text-[10px] font-regular uppercase tracking-[0.14em] text-neutral-500">Sentiment</div>
-							<div className="relative">
-								<select
-									className="h-10 appearance-none rounded-full border border-neutral-200 bg-white/90 px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm ring-1 ring-transparent transition hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
-									value={sentimentFilter}
-									onChange={(e) => setSentimentFilter(e.target.value as typeof sentimentFilter)}
-								>
-									<option value="all">All</option>
-									<option value="positive">Positive</option>
-									<option value="neutral">Neutral</option>
-									<option value="negative">Negative</option>
-								</select>
-								<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">▾</span>
-							</div>
-						</div>
-
-						<div className="flex items-center gap-2">
-							<div className="text-[10px] font-regular uppercase tracking-[0.14em] text-neutral-500">NPS</div>
-							<div className="relative">
-								<select
-									className="h-10 appearance-none rounded-full border border-neutral-200 bg-white/90 px-3 pr-8 text-xs font-regular text-neutral-800 shadow-sm ring-1 ring-transparent transition hover:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-pink-200"
-									value={npsFilter}
-									onChange={(e) => setNpsFilter(e.target.value as typeof npsFilter)}
-								>
-									<option value="all">All</option>
-									<option value="promoter">Promoters</option>
-									<option value="passive">Passives</option>
-									<option value="detractor">Detractors</option>
-									<option value="missing">Missing</option>
-								</select>
-								<span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-500">▾</span>
-							</div>
-						</div>
 					</div>
 				</div>
 
@@ -515,6 +501,40 @@ export default function AdminResponsesPage() {
 					<span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Selected question</span>
 					<span className="font-semibold text-pink-600">{selectedQuestion?.prompt ?? "No question selected"}</span>
 				</div>
+
+				{answerFilterPills.length > 0 && (
+					<div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-neutral-700">
+						<span className="text-[10px] uppercase tracking-[0.14em] text-neutral-500">Filter answers</span>
+						<button
+							type="button"
+							onClick={() => setAnswerFilter(null)}
+							className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+								answerFilter === null
+									? "border-pink-400 bg-pink-50 text-pink-700"
+									: "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
+							}`}
+						>
+							All
+						</button>
+						{answerFilterPills.map((opt) => {
+							const active = answerFilter === opt.value;
+							return (
+								<button
+									key={opt.label}
+									type="button"
+									onClick={() => setAnswerFilter(opt.value)}
+									className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+										active
+											? "border-pink-400 bg-pink-50 text-pink-700"
+											: "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300"
+									}`}
+								>
+									{opt.label}
+								</button>
+							);
+						})}
+					</div>
+				)}
 
 				<div className="mt-6 overflow-hidden rounded-xl border border-neutral-200">
 					<table className="min-w-full divide-y divide-neutral-200 text-sm">
@@ -561,18 +581,6 @@ export default function AdminResponsesPage() {
 								<th className="px-4 py-2 text-left font-semibold">
 									<button
 										type="button"
-										onClick={() => handleSort("sentiment")}
-										className="flex items-center gap-1 text-neutral-700 hover:text-pink-600"
-									>
-										Sentiment
-										<span className="text-[10px] leading-none text-neutral-400">
-											{sortBy === "sentiment" ? (sortDir === "asc" ? "▲" : "▼") : "▵"}
-										</span>
-									</button>
-								</th>
-								<th className="px-4 py-2 text-left font-semibold">
-									<button
-										type="button"
 										onClick={() => handleSort("date")}
 										className="flex items-center gap-1 text-neutral-700 hover:text-pink-600"
 									>
@@ -588,14 +596,14 @@ export default function AdminResponsesPage() {
 						<tbody className="divide-y divide-neutral-200 bg-white text-neutral-800">
 							{loadingAnswers && (
 								<tr>
-									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={6}>
+									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={5}>
 										Loading latest answers...
 									</td>
 								</tr>
 							)}
 							{!loadingAnswers && answers.length === 0 && (
 								<tr>
-									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={6}>
+									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={5}>
 										No answers found for this filter.
 									</td>
 								</tr>
@@ -622,11 +630,6 @@ export default function AdminResponsesPage() {
 										</td>
 										<td className="px-4 py-3 text-sm text-neutral-600">{locationLabel(row.response?.location)}</td>
 										<td className="px-4 py-3 text-sm text-neutral-800">{formatAnswer(row, selectedQuestion)}</td>
-										<td className="px-4 py-3 text-sm text-neutral-700">
-											{row.response?.sentiment_score !== null && row.response?.sentiment_score !== undefined
-												? row.response.sentiment_score.toFixed(2)
-												: "—"}
-										</td>
 										<td className="px-4 py-3 text-sm text-neutral-600">
 											{row.response?.created_at?.slice(0, 10) || row.created_at.slice(0, 10)}
 										</td>

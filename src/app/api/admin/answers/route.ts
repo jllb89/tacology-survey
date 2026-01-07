@@ -10,10 +10,10 @@ const querySchema = z.object({
 	limit: z.coerce.number().min(1).max(2000).optional(),
 	page: z.coerce.number().min(1).max(500).optional(),
 	pageSize: z.coerce.number().min(1).max(200).optional(),
-	sortBy: z.enum(["answer", "sentiment", "date"]).optional(),
+	sortBy: z.enum(["answer", "date"]).optional(),
 	sortDir: z.enum(["asc", "desc"]).optional(),
-	sentiment: z.enum(["positive", "neutral", "negative"]).optional(),
-	npsBucket: z.enum(["promoter", "passive", "detractor", "missing"]).optional(),
+	answerText: z.string().optional(),
+	answerNumber: z.coerce.number().optional(),
 	format: z.enum(["json", "csv"]).optional(),
 	ids: z.array(z.string().uuid()).optional(),
 });
@@ -33,10 +33,10 @@ export async function GET(request: Request) {
 			limit: searchParams.get("limit") || undefined,
 			page: searchParams.get("page") || undefined,
 			pageSize: searchParams.get("pageSize") || undefined,
-			sortBy: (searchParams.get("sortBy") as "answer" | "sentiment" | "date" | null) || undefined,
+			sortBy: (searchParams.get("sortBy") as "answer" | "date" | null) || undefined,
 			sortDir: (searchParams.get("sortDir") as "asc" | "desc" | null) || undefined,
-			sentiment: (searchParams.get("sentiment") as "positive" | "neutral" | "negative" | null) || undefined,
-			npsBucket: (searchParams.get("npsBucket") as "promoter" | "passive" | "detractor" | "missing" | null) || undefined,
+			answerText: searchParams.get("answer") || undefined,
+			answerNumber: searchParams.get("answerNumber") || undefined,
 			format: (searchParams.get("format") as "json" | "csv" | null) || undefined,
 			ids: ids.length ? ids : undefined,
 		});
@@ -58,21 +58,6 @@ export async function GET(request: Request) {
 					.order("value_number", { ascending, nullsFirst: ascending })
 					// stable tie-breaker for pagination
 					.order("created_at", { ascending: false });
-				return q;
-			}
-
-			if (sortBy === "sentiment") {
-				q = q
-					.order("sentiment_score", {
-						ascending,
-						nullsFirst: ascending,
-						foreignTable: "response",
-					})
-					// tie-breaker in the SAME direction
-					.order("created_at", { ascending, foreignTable: "response" })
-					// final stable tie-breaker
-					.order("created_at", { ascending: false });
-
 				return q;
 			}
 
@@ -119,21 +104,11 @@ export async function GET(request: Request) {
 			if (parsed.to) {
 				q = q.lte("survey_responses.created_at", parsed.to);
 			}
-			if (parsed.npsBucket) {
-				if (parsed.npsBucket === "missing") {
-					q = q.is("survey_responses.nps_bucket", null);
-				} else {
-					q = q.eq("survey_responses.nps_bucket", parsed.npsBucket);
-				}
+			if (parsed.answerText) {
+				q = q.eq("value_text", parsed.answerText);
 			}
-			if (parsed.sentiment) {
-				if (parsed.sentiment === "positive") {
-					q = q.gte("survey_responses.sentiment_score", 0.25);
-				} else if (parsed.sentiment === "negative") {
-					q = q.lte("survey_responses.sentiment_score", -0.25);
-				} else {
-					q = q.gte("survey_responses.sentiment_score", -0.25).lte("survey_responses.sentiment_score", 0.25);
-				}
+			if (parsed.answerNumber !== undefined) {
+				q = q.eq("value_number", parsed.answerNumber);
 			}
 			if (parsed.ids && parsed.ids.length) {
 				q = q.in("survey_answers.id", parsed.ids);
