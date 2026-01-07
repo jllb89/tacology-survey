@@ -17,7 +17,7 @@ const answerSchema = z.object({
 });
 
 const schema = z.object({
-	email: z.string().email(),
+	email: z.string().email().optional(),
 	name: z.string().trim().min(1).optional(),
 	phone: z.string().trim().optional(),
 	location: z.enum(["brickell", "wynwood"]),
@@ -47,6 +47,7 @@ export async function POST(request: Request) {
 	try {
 		const json = await request.json();
 		const { email, name, phone, location, answers, improvement_text } = schema.parse(json);
+		const normalizedEmail = email?.trim() || null;
 
 		const supabase = createServiceClient();
 
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 			.from("customers")
 			.upsert(
 				{
-					email,
+					email: normalizedEmail,
 					name: name || null,
 					phone: phone || null,
 				},
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
 			.from("survey_responses")
 			.insert({
 				customer_id: customer.id,
-				customer_email: email,
+				customer_email: normalizedEmail,
 				customer_name: name || null,
 				location,
 				completed: true,
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
 			.map((a, idx) => `Q${idx + 1}: ${a.value_text ?? ""} ${a.value_number ?? ""}`)
 			.join("\n");
 		const content = [
-			`Email: ${email}`,
+			normalizedEmail ? `Email: ${normalizedEmail}` : null,
 			name ? `Name: ${name}` : null,
 			`Location: ${location}`,
 			improvement_text ? `Improvement: ${improvement_text}` : null,
@@ -155,7 +156,10 @@ export async function POST(request: Request) {
 		const shouldAlert =
 			(nps_score !== null && nps_score <= 6) || (sentiment_score !== null && sentiment_score <= -0.2);
 
-		const backgroundSends: Array<Promise<unknown>> = [sendCouponEmail(email, name, location)];
+		const backgroundSends: Array<Promise<unknown>> = [];
+		if (normalizedEmail) {
+			backgroundSends.push(sendCouponEmail(normalizedEmail, name, location));
+		}
 		if (shouldAlert) {
 			const message = buildAlertMessage({
 				email,

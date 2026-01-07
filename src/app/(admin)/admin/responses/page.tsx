@@ -22,6 +22,7 @@ type AnswerApiRow = {
 		id: string;
 		customer_name: string | null;
 		customer_email: string | null;
+		customer?: { phone: string | null; email: string | null } | null;
 		location: "brickell" | "wynwood";
 		created_at: string;
 		sentiment_score: number | null;
@@ -218,6 +219,33 @@ export default function AdminResponsesPage() {
 		if (loc === "brickell") return "Brickell";
 		if (loc === "wynwood") return "Wynwood";
 		return "—";
+	};
+
+	const miamiDateFormatter = useMemo(
+		() =>
+			new Intl.DateTimeFormat("en-US", {
+				month: "short",
+				day: "2-digit",
+				year: "numeric",
+				hour: "numeric",
+				minute: "2-digit",
+				timeZone: "America/New_York",
+				hour12: true,
+			}),
+		[],
+	);
+
+	const formatDateTime = (value?: string | null) => {
+		if (!value) return "—";
+		const d = new Date(value);
+		if (Number.isNaN(d.getTime())) return "—";
+		return miamiDateFormatter.format(d);
+	};
+
+	const buildTelHref = (phone?: string | null) => {
+		if (!phone) return "";
+		const digits = phone.replace(/[^0-9+]/g, "");
+		return digits ? `tel:${digits}` : "";
 	};
 
 	const handleSort = (column: "answer" | "date") => {
@@ -584,26 +612,27 @@ export default function AdminResponsesPage() {
 										onClick={() => handleSort("date")}
 										className="flex items-center gap-1 text-neutral-700 hover:text-pink-600"
 									>
-										Date
+										Date & time
 										<span className="text-[10px] leading-none text-neutral-400">
 											{sortBy === "date" ? (sortDir === "asc" ? "▲" : "▼") : "▵"}
 										</span>
 									</button>
 								</th>
+								<th className="px-4 py-2 text-left font-semibold">Contact</th>
 							</tr>
 						</thead>
 
 						<tbody className="divide-y divide-neutral-200 bg-white text-neutral-800">
 							{loadingAnswers && (
 								<tr>
-									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={5}>
+									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={6}>
 										Loading latest answers...
 									</td>
 								</tr>
 							)}
 							{!loadingAnswers && answers.length === 0 && (
 								<tr>
-									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={5}>
+									<td className="px-4 py-3 text-sm text-neutral-500" colSpan={6}>
 										No answers found for this filter.
 									</td>
 								</tr>
@@ -631,7 +660,36 @@ export default function AdminResponsesPage() {
 										<td className="px-4 py-3 text-sm text-neutral-600">{locationLabel(row.response?.location)}</td>
 										<td className="px-4 py-3 text-sm text-neutral-800">{formatAnswer(row, selectedQuestion)}</td>
 										<td className="px-4 py-3 text-sm text-neutral-600">
-											{row.response?.created_at?.slice(0, 10) || row.created_at.slice(0, 10)}
+											{formatDateTime(row.response?.created_at ?? row.created_at)}
+										</td>
+										<td className="px-4 py-3 text-sm text-neutral-700">
+											<div className="flex flex-wrap gap-2">
+												{(() => {
+													const email = row.response?.customer_email || row.response?.customer?.email || null;
+													const phone = row.response?.customer?.phone || null;
+													const telHref = buildTelHref(phone);
+													return (
+														<>
+															<button
+																type="button"
+																disabled={!telHref}
+																onClick={() => telHref && (window.location.href = telHref)}
+																className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 shadow-sm transition hover:border-pink-300 hover:text-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+															>
+																Call
+															</button>
+															<button
+																type="button"
+																disabled={!email}
+																onClick={() => email && (window.location.href = `mailto:${email}`)}
+																className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-800 shadow-sm transition hover:border-pink-300 hover:text-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+															>
+																Email
+															</button>
+														</>
+													);
+												})()}
+											</div>
 										</td>
 									</tr>
 								))}

@@ -158,10 +158,10 @@ export default function SurveyPage() {
 
   function validateContact() {
     if (!contact.name.trim()) return "Name is required";
-    if (!contact.email.trim()) return "Email is required";
-    const emailOk = /.+@.+\..+/.test(contact.email.trim());
-    if (!emailOk) return "Enter a valid email";
-    if (!contact.phone.trim()) return "Phone is required";
+    if (contact.email.trim()) {
+      const emailOk = /.+@.+\..+/.test(contact.email.trim());
+      if (!emailOk) return "Enter a valid email";
+    }
     if (!contact.location) return "Location is required";
     return null;
   }
@@ -179,7 +179,7 @@ export default function SurveyPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: contact.email.trim(),
+          email: contact.email.trim() || undefined,
           name: contact.name.trim(),
           phone: contact.phone.trim(),
           location: contact.location,
@@ -220,7 +220,7 @@ export default function SurveyPage() {
     setSubmitting(true);
     try {
       const payload = {
-        email: contact.email.trim(),
+        email: contact.email.trim() || undefined,
         name: contact.name.trim(),
         phone: contact.phone.trim(),
         location: contact.location as Location,
@@ -443,8 +443,7 @@ export default function SurveyPage() {
                     </div>
                   </div>
                   {contactError && <p className="text-sm text-rose-600">{contactError}</p>}
-                  <div className="flex items-center justify-between mt-6">
-                    <div className="text-xs text-neutral-400">All fields on this step are required.</div>
+                  <div className="flex items-center justify-center mt-6">
                     <button
                       type="button"
                       onClick={goNext}

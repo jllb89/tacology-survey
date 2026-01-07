@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase/server";
 
 const schema = z.object({
-	email: z.string().email(),
+	email: z.string().email().optional(),
 	name: z.string().trim().min(1).optional(),
 	phone: z.string().trim().optional(),
 	location: z.enum(["brickell", "wynwood"]),
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 			.from("customers")
 			.upsert(
 				{
-					email,
+					email: email || null,
 					name: name || null,
 					phone: phone || null,
 				},

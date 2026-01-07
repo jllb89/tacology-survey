@@ -88,7 +88,12 @@ export async function GET(request: Request) {
 				location,
 				created_at,
 				sentiment_score,
-				nps_bucket
+				nps_bucket,
+				customer:customers (
+					id,
+					phone,
+					email
+				)
 			)
 		`;
 
